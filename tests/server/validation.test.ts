@@ -18,7 +18,7 @@ import {
 import type { TrainingPlan, Workout } from "../../src/schema/training-plan.js";
 
 const samplePlan = (): TrainingPlan =>
-  JSON.parse(readFileSync(new URL("../../examples/sample-plan.json", import.meta.url), "utf-8"));
+  JSON.parse(readFileSync(new URL("../fixtures/sample-plan.json", import.meta.url), "utf-8"));
 
 describe("parseWorkoutUpdates", () => {
   it("accepts exactly what the WorkoutModal sends", () => {

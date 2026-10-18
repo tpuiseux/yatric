@@ -12,7 +12,7 @@
 </script>
 
 <svelte:head>
-  <title>Create an account — Claude Coach</title>
+  <title>Create an account — Yatric</title>
 </svelte:head>
 
 <main>

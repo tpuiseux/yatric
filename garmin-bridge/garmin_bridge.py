@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""HTTP bridge between claude-coach and Garmin Connect.
+"""HTTP bridge between Yatric and Garmin Connect.
 
 Two independent client modes share this one process:
 
-  1. Legacy (single account, browser-driven): the standalone HTML viewer's
-     "Send to Garmin" button (src/viewer/lib/garminBridge.ts) calls
-     POST /push-workout directly. It has no notion of a user - the bridge is
+  1. Legacy (single account, browser-driven): the retired standalone HTML
+     viewer's "Send to Garmin" button called POST /push-workout directly. It has no notion of a user - the bridge is
      started once, already logged in to whichever account --tokenstore
      points at (see init_api below), and every call pushes to that account.
 
-  2. Multi-tenant (per-account, server-driven): claude-coach's SvelteKit app
+  2. Multi-tenant (per-account, server-driven): Yatric's SvelteKit app
      (src/lib/server/garminBridge.ts) calls the /garmin/* routes on behalf
      of whichever athlete is logged in, passing their numeric user id. Each
      user gets their own tokenstore file under --multiuser-tokenstore-dir,

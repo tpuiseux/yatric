@@ -5,7 +5,7 @@ import { buildZonesFromSettings, deriveSettingsFromPlan } from "../../src/lib/se
 import type { TrainingPlan } from "../../src/schema/training-plan.js";
 
 const samplePlan = (): TrainingPlan =>
-  JSON.parse(readFileSync(new URL("../../examples/sample-plan.json", import.meta.url), "utf-8"));
+  JSON.parse(readFileSync(new URL("../fixtures/sample-plan.json", import.meta.url), "utf-8"));
 
 describe("split HR zones", () => {
   it("keep their ids (5a, 5b) through the settings and back into the plan", () => {

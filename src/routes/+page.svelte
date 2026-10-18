@@ -47,7 +47,7 @@
 </script>
 
 <svelte:head>
-  <title>Claude Coach</title>
+  <title>Yatric</title>
 </svelte:head>
 
 <main>
@@ -79,9 +79,7 @@
     <div class="empty">
       <p>No training plan yet.</p>
       <a class="create big" href="{base}/plans/new">Create my plan with the coach</a>
-      <p class="hint">
-        Or generate one with the <code>/coach</code> skill in Claude Code and import the JSON file.
-      </p>
+      <p class="hint">Or import a plan you already have as a JSON file.</p>
     </div>
   {:else}
     <ul>

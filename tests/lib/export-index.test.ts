@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  sanitizeFilename,
-  getAvailableFormats,
-  downloadFile,
-} from "../../src/viewer/lib/export/index.js";
+import { sanitizeFilename, getAvailableFormats, downloadFile } from "../../src/lib/export/index.js";
 import type { Sport } from "../../src/schema/training-plan.js";
 
 describe("sanitizeFilename", () => {

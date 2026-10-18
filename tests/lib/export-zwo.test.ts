@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { isZwoSupported, generateZwo } from "../../src/viewer/lib/export/zwo.js";
+import { isZwoSupported, generateZwo } from "../../src/lib/export/zwo.js";
 import type { Workout, Sport } from "../../src/schema/training-plan.js";
-import type { Settings } from "../../src/viewer/stores/settings.js";
+import type { Settings } from "../../src/lib/settings.js";
 
 // Mock Settings object
 const mockSettings: Settings = {
@@ -122,7 +122,7 @@ describe("ZWO Export", () => {
       expect(xml).toContain("</workout_file>");
 
       // Check metadata
-      expect(xml).toContain("<author>Claude Coach</author>");
+      expect(xml).toContain("<author>Yatric</author>");
       expect(xml).toContain("<name>Endurance Ride</name>");
       expect(xml).toContain("<description>Easy aerobic ride</description>");
       expect(xml).toContain("<sportType>bike</sportType>");

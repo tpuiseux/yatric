@@ -85,7 +85,7 @@
 </script>
 
 <svelte:head>
-  <title>Create a plan — Claude Coach</title>
+  <title>Create a plan — Yatric</title>
 </svelte:head>
 
 <main>

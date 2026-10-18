@@ -3,11 +3,6 @@
  * Garmin's workout-service API expects (POST /workout-service/workout), so
  * it can be forwarded to the Garmin bridge (garmin-bridge/garmin_bridge.py)
  * by the /plans/[id]/workouts/[workoutId]/garmin route.
- *
- * Ported from src/viewer/lib/export/garmin-connect.ts (the standalone
- * viewer's client-side version): identical builder logic, but takes the
- * plan explicitly instead of reading the browser-only `planData` store,
- * since this runs on the server.
  */
 
 import type {

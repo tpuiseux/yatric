@@ -103,11 +103,11 @@ const PLAN = {
 };
 
 describe("coach turn", () => {
-  const testDir = mkdtempSync(join(tmpdir(), "claude-coach-coach-test-"));
+  const testDir = mkdtempSync(join(tmpdir(), "yatric-coach-test-"));
   let userId: number;
 
   beforeAll(async () => {
-    process.env.CLAUDE_COACH_DB_PATH = join(testDir, "test.db");
+    process.env.YATRIC_DB_PATH = join(testDir, "test.db");
     process.env.ANTHROPIC_API_KEY = "test";
     const { initDatabase, run } = await import("../../src/db/client.js");
     const { migrate } = await import("../../src/db/migrate.js");
@@ -126,7 +126,7 @@ describe("coach turn", () => {
 
   afterAll(() => {
     rmSync(testDir, { recursive: true, force: true });
-    delete process.env.CLAUDE_COACH_DB_PATH;
+    delete process.env.YATRIC_DB_PATH;
     delete process.env.ANTHROPIC_API_KEY;
   });
 

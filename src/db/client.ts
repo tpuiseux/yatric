@@ -143,7 +143,7 @@ export function runScript(script: string): void {
 // Parameterized queries (node:sqlite backend only)
 //
 // query/queryJson/execute above predate multi-user support and take raw SQL
-// text - fine for the CLI's own trusted queries, but not for code handling
+// text - fine for trusted, fixed queries, but not for code handling
 // user-supplied values (emails, session ids, plan JSON). run/get/all below
 // bind parameters instead of interpolating them into SQL strings.
 // ============================================================================

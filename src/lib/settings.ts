@@ -1,12 +1,8 @@
 import type { TrainingPlan, AthleteZones, UnitPreferences } from "../schema/training-plan.js";
 
 /**
- * Ported from viewer/stores/settings.ts, minus loadSettings/saveSettings -
- * those read/wrote localStorage, which no longer exists as the source of
- * truth now that plans live in the DB. deriveSettingsFromPlan below covers
- * what loadSettings did except the final "override with the user's saved
- * settings" step; per-user zone/theme overrides are a later addition (the
- * SaaS migration plan defers full Settings UI porting).
+ * Display settings (units, zones) derived from a plan - plans live in the
+ * DB, so deriveSettingsFromPlan below reads everything from the plan itself.
  */
 
 export interface HrZone {

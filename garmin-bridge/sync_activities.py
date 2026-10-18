@@ -1,25 +1,23 @@
 #!/usr/bin/env python3
-"""Sync activities from Garmin Connect into claude-coach's coach.db.
+"""Sync activities from Garmin Connect into Yatric's database.
 
-The Garmin equivalent of `npx claude-coach sync` (Strava) - writes into the
-exact same `activities` table Strava populates (see src/db/schema.ts), so
-every existing skill query (coach, weekly-review) and view (weekly_volume,
-recent_activities) keeps working unchanged; only the data source changes.
+Writes into the `activities` table that historical Strava imports also
+populate (see src/db/schema.ts), so every view (weekly_volume,
+recent_activities) reads both the same way; only the data source changes.
 Historical Strava-sourced rows are left untouched - this only adds/updates
 rows going forward, keyed by Garmin's own activityId (observed to be
 numerically higher than any historical Strava ID, so there's no realistic
 collision risk between the two id spaces).
 
-Run `npx claude-coach init` once first, from the same directory, to create
-the database - this script doesn't create the schema itself (see
-src/db/schema.ts for why: single source of truth, shared with the web app).
+Start the web app once first to create the database - this script doesn't
+create the schema itself (src/db/schema.ts is the single source of truth).
 
 Notably NOT populated: `suffer_score` (Strava's proprietary Relative Effort
 has no Garmin equivalent on the same 0-300ish scale - Garmin's closest
 concepts, activityTrainingLoad and aerobicTrainingEffect, are a different
 metric on a different scale, and are preserved in raw_json instead of being
 force-fit into that column) and the `streams` table (unused by any current
-skill query, and was never populated by the Strava sync either).
+query, and was never populated by the Strava sync either).
 
 Auth reuses garmin_lib.py's login flow and, by default, a separate
 tokenstore from the push-workout bridge's legacy single-account mode
@@ -47,10 +45,10 @@ from pathlib import Path
 
 from garmin_lib import call_with_retry, init_api
 
-COACH_DB_PATH = Path(os.getenv("CLAUDE_COACH_DB_PATH", "~/.claude-coach/coach.db")).expanduser()
+COACH_DB_PATH = Path(os.getenv("YATRIC_DB_PATH", "data/yatric.db")).expanduser()
 
 # Maps Garmin's activityType.typeKey to the Strava-style sport_type strings
-# already used throughout coach.db and the skill queries that read it
+# already used throughout coach.db and the queries that read it
 # (e.g. "Run", "GravelRide") - keeps every existing query working unchanged.
 SPORT_TYPE_MAP = {
     "running": "Run",
@@ -294,7 +292,7 @@ def main() -> None:
     db_path = Path(args.db).expanduser()
     if not db_path.exists():
         print(
-            f"{db_path} doesn't exist yet. Run 'npx claude-coach init' first to create the "
+            f"{db_path} doesn't exist yet. Start the web app once first to create the "
             "database (see src/db/schema.ts - this script writes into an existing schema "
             "rather than creating its own copy of it).",
             file=sys.stderr,

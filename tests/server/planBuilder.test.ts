@@ -155,11 +155,11 @@ function week(n: number, start: string, extra: Record<string, unknown>[] = []) {
 }
 
 describe("plan builder", () => {
-  const testDir = mkdtempSync(join(tmpdir(), "claude-coach-builder-test-"));
+  const testDir = mkdtempSync(join(tmpdir(), "yatric-builder-test-"));
   let userId: number;
 
   beforeAll(async () => {
-    process.env.CLAUDE_COACH_DB_PATH = join(testDir, "test.db");
+    process.env.YATRIC_DB_PATH = join(testDir, "test.db");
     process.env.ANTHROPIC_API_KEY = "test";
     const { initDatabase } = await import("../../src/db/client.js");
     const { migrate } = await import("../../src/db/migrate.js");
@@ -171,7 +171,7 @@ describe("plan builder", () => {
 
   afterAll(() => {
     rmSync(testDir, { recursive: true, force: true });
-    delete process.env.CLAUDE_COACH_DB_PATH;
+    delete process.env.YATRIC_DB_PATH;
     delete process.env.ANTHROPIC_API_KEY;
   });
 

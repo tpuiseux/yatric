@@ -1,17 +1,17 @@
-// The coach skill's reference material (skill/reference/), bundled as text.
-import assessment from "../../../../skill/reference/assessment.md?raw";
-import zones from "../../../../skill/reference/zones.md?raw";
-import periodization from "../../../../skill/reference/periodization.md?raw";
-import roadRace from "../../../../skill/reference/road-race-periodization.md?raw";
-import workouts from "../../../../skill/reference/workouts.md?raw";
-import loadManagement from "../../../../skill/reference/load-management.md?raw";
-import raceDay from "../../../../skill/reference/race-day.md?raw";
+// The coaching reference material (../reference/), bundled as text.
+import assessment from "../reference/assessment.md?raw";
+import zones from "../reference/zones.md?raw";
+import periodization from "../reference/periodization.md?raw";
+import roadRace from "../reference/road-race-periodization.md?raw";
+import workouts from "../reference/workouts.md?raw";
+import loadManagement from "../reference/load-management.md?raw";
+import raceDay from "../reference/race-day.md?raw";
 import type { PlanForm } from "../../planDraft.js";
 import { RACE_DISTANCES } from "../../planDraft.js";
 import { raceDistanceKm, type WeekFrame } from "./form.js";
 
 /**
- * Instructions for building a plan online - the coach skill's workflow
+ * Instructions for building a plan online - the coaching workflow
  * (assess, validate with the athlete, then write), with the app doing the
  * bookkeeping: week dates, workout ids and weekly totals come from the
  * server, the coach supplies the content. The same on every request, so it

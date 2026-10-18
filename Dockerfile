@@ -1,6 +1,4 @@
-# Multi-user web app (SvelteKit, adapter-node). Distinct from the legacy
-# static viewer, which is still served by the `training-view` nginx
-# container until cutover - see the SaaS migration plan.
+# Yatric web app (SvelteKit, adapter-node).
 
 FROM node:22-alpine AS builder
 WORKDIR /app
@@ -17,7 +15,7 @@ COPY . .
 # the nginx location this image is deployed under exactly.
 ARG BASE_PATH=/training-plan
 ENV BASE_PATH=$BASE_PATH
-RUN npm run build:web
+RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app

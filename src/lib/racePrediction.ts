@@ -160,7 +160,7 @@ export function raceTarget(plan: TrainingPlan): RaceTarget | null {
   if (!distanceMeters) return null;
 
   const pacing = plan.raceStrategy?.pacing?.run;
-  // goalTime isn't in the schema but the coach skill writes it next to the paces.
+  // goalTime isn't in the schema but the coach writes it next to the paces.
   const goalTime = (plan.zones?.run?.pace as { goalTime?: unknown } | undefined)?.goalTime;
   let goalSeconds = typeof goalTime === "string" ? parseClock(goalTime) : null;
   if (goalSeconds === null && pacing?.targetPace) {

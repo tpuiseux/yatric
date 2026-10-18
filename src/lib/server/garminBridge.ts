@@ -1,8 +1,7 @@
 /**
  * Server-side client for the Garmin bridge's multi-tenant routes
- * (garmin-bridge/garmin_bridge.py's /garmin/* endpoints). Mirrors
- * src/viewer/lib/garminBridge.ts's shape, but talks to the bridge from the
- * SvelteKit server rather than from the browser — the bridge is never
+ * (garmin-bridge/garmin_bridge.py's /garmin/* endpoints). Talks to the
+ * bridge from the SvelteKit server rather than from the browser — the bridge is never
  * reachable from outside the deployment (no nginx route to it), so a
  * user's Garmin session tokens never pass through anything public.
  */

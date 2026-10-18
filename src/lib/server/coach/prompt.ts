@@ -1,9 +1,9 @@
-// The coach skill's reference material (skill/reference/), bundled as text.
-import workouts from "../../../../skill/reference/workouts.md?raw";
-import zones from "../../../../skill/reference/zones.md?raw";
-import loadManagement from "../../../../skill/reference/load-management.md?raw";
-import roadRace from "../../../../skill/reference/road-race-periodization.md?raw";
-import raceDay from "../../../../skill/reference/race-day.md?raw";
+// The coaching reference material (../reference/), bundled as text.
+import workouts from "../reference/workouts.md?raw";
+import zones from "../reference/zones.md?raw";
+import loadManagement from "../reference/load-management.md?raw";
+import roadRace from "../reference/road-race-periodization.md?raw";
+import raceDay from "../reference/race-day.md?raw";
 
 /**
  * The coach's standing instructions. Identical on every request - anything

@@ -1,6 +1,6 @@
 {
-  "name": "Claude Coach",
-  "short_name": "Coach",
+  "name": "Yatric",
+  "short_name": "Yatric",
   "description": "Your training plan, synced with Garmin.",
   "start_url": "./",
   "scope": "./",

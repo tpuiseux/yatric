@@ -693,18 +693,20 @@
       {#if activeTab === "about"}
         <div class="settings-section">
           <div class="about-header">
-            <h3 class="about-title">Claude Coach</h3>
+            <h3 class="about-title">Yatric</h3>
             <span class="about-version">v{version}</span>
           </div>
           <p class="about-description">
-            Personalized training plans for triathlons, marathons, and endurance events. Built with
-            Claude.
+            Endurance training plans built and adjusted by an AI coach, synced with your Garmin
+            watch.
           </p>
         </div>
 
         <div class="settings-section">
           <h4 class="settings-section-title">License</h4>
-          <p class="about-license">MIT License. Free to use, modify, and distribute.</p>
+          <p class="about-license">
+            Open source under the MIT License, based on Felix Rieseberg's claude-coach.
+          </p>
         </div>
       {/if}
     </div>

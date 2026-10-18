@@ -5,8 +5,8 @@ Separate from coach.db (which holds activities, see sync_activities.py in this
 same directory) - Garmin Connect exposes recovery signals that don't fit in
 that table: sleep, HRV, all-day stress, Body Battery, morning training
 readiness, training status/load (including ACWR - acute:chronic workload
-ratio, a standard injury-risk signal), and VO2max. Used by the weekly-review
-skill's "Pull Recovery/Wellness Data" step.
+ratio, a standard injury-risk signal), and VO2max. Feeds the app's load and
+recovery panel and the coach's weekly review.
 
 Auth reuses the same token store as sync_activities.py and the workout-push
 bridge (garmin_bridge.py) - ~/.garminconnect by default - so logging in once

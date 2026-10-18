@@ -39,12 +39,12 @@ async function waitForSync(userId: number) {
 }
 
 describe("training log (Garmin sync + workout feedback)", () => {
-  const testDir = mkdtempSync(join(tmpdir(), "claude-coach-traininglog-test-"));
+  const testDir = mkdtempSync(join(tmpdir(), "yatric-traininglog-test-"));
   let alice: number;
   let bob: number;
 
   beforeAll(async () => {
-    process.env.CLAUDE_COACH_DB_PATH = join(testDir, "test.db");
+    process.env.YATRIC_DB_PATH = join(testDir, "test.db");
     const { initDatabase } = await import("../../src/db/client.js");
     const { migrate } = await import("../../src/db/migrate.js");
     await initDatabase();
@@ -59,7 +59,7 @@ describe("training log (Garmin sync + workout feedback)", () => {
 
   afterAll(() => {
     rmSync(testDir, { recursive: true, force: true });
-    delete process.env.CLAUDE_COACH_DB_PATH;
+    delete process.env.YATRIC_DB_PATH;
   });
 
   beforeEach(() => {

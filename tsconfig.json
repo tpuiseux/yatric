@@ -12,16 +12,6 @@
     "src/service-worker.ts",
     "src/service-worker/**/*.ts",
     "src/service-worker.d.ts",
-    "src/service-worker/**/*.d.ts",
-    // The standalone single-file viewer (built separately by
-    // vite.config.viewer.ts, powering the CLI's `render` command) - not
-    // part of the SvelteKit app this tsconfig type-checks. lib/export/**,
-    // lib/utils.ts, and schema/ are NOT excluded - they carry over unchanged.
-    "src/viewer/App.svelte",
-    "src/viewer/main.ts",
-    "src/viewer/components/**",
-    "src/viewer/stores/**",
-    "src/viewer/lib/garminBridge.ts",
-    "src/viewer/lib/UpdatePlan.ts"
+    "src/service-worker/**/*.d.ts"
   ]
 }

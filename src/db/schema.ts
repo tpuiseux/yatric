@@ -1,9 +1,7 @@
 // Source of truth for the DDL - kept as a plain TS string (not read from
-// schema.sql via fs at runtime) so it works identically whether this module
-// runs under tsx (the CLI) or gets bundled by Vite for the SvelteKit server,
-// where a readFileSync relative to the compiled file's location isn't
-// reliable (Vite doesn't copy arbitrary runtime-referenced files next to
-// its output chunks the way `tsc` + a manual `cp` step does for the CLI).
+// schema.sql via fs at runtime) so it works identically under tsx (scripts)
+// and bundled by Vite for the SvelteKit server, where a readFileSync
+// relative to the compiled file's location isn't reliable.
 export const schema = `
 -- Core activity data
 CREATE TABLE IF NOT EXISTS activities (
@@ -171,7 +169,7 @@ CREATE TABLE IF NOT EXISTS garmin_sync_state (
 );
 
 -- Daily recovery signals from Garmin, one row per user per day. Same columns
--- as garmin-bridge/wellness_schema.sql (the CLI's separate wellness.db),
+-- as garmin-bridge/wellness_schema.sql (the standalone wellness sync's own DB),
 -- plus user_id.
 CREATE TABLE IF NOT EXISTS daily_wellness (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

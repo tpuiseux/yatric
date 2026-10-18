@@ -526,7 +526,7 @@ export function adopt(draft: Draft, athlete: string): string {
       createdAt: now,
       updatedAt: now,
       totalWeeks: frames.length,
-      generatedBy: "Claude Coach (online)",
+      generatedBy: "Yatric (online)",
     },
     preferences: {
       swim: "meters",

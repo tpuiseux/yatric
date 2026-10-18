@@ -6,13 +6,9 @@ import type {
 } from "../../schema/training-plan.js";
 
 /**
- * Direct, immediate mutations on a plan object - the server-side successor
- * to the old app's two duplicate "accumulate changes, merge at export time"
- * implementations (cli.ts's applyChangesToPlan and viewer/lib/UpdatePlan.ts's
- * applyLocalChangesToPlan). Since the DB row is now the single source of
- * truth (not a localStorage overlay reconciled later), each mutation just
- * edits the plan in place and the caller persists it immediately via
- * savePlanForUser - there's no separate "changes" structure to maintain.
+ * Direct, immediate mutations on a plan object. The DB row is the single
+ * source of truth, so each mutation just edits the plan in place and the
+ * caller persists it immediately via savePlanForUser.
  */
 
 class WorkoutNotFoundError extends Error {

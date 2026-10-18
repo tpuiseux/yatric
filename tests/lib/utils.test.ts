@@ -6,7 +6,7 @@ import {
   formatDateISO,
   getOrderedDays,
   getDaysToEvent,
-} from "../../src/viewer/lib/utils.js";
+} from "../../src/lib/utils.js";
 
 describe("Date Utilities", () => {
   describe("parseDate", () => {

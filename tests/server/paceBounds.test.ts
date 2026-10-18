@@ -12,7 +12,7 @@ import {
 import type { TrainingPlan, Workout } from "../../src/schema/training-plan.js";
 
 const samplePlan = (): TrainingPlan =>
-  JSON.parse(readFileSync(new URL("../../examples/sample-plan.json", import.meta.url), "utf-8"));
+  JSON.parse(readFileSync(new URL("../fixtures/sample-plan.json", import.meta.url), "utf-8"));
 
 describe("run pace zone bounds through Settings", () => {
   const planWithBounds = (): TrainingPlan => {

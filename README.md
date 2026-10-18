@@ -1,175 +1,84 @@
-# Claude Coach
+# Yatric
 
-Claude Coach allows you to use Claude to create custom-tailored training programs for triathlons, marathons, and other endurance activities. Using a data-driven approach and principles from top training plans, Claude will create a training plan that's uniquely fit for you, your personal fitness, and the constraints you have in the next couple of weeks. Maybe you're recovering from an injury, maybe you're traveling and don't have access to a pool or track in a certain week - tell Claude about it and it'll create a plan that works for you.
+Yatric is an endurance training app with an AI coach. Fill in a short form about your race and your running, and the coach assesses where you stand, agrees a goal with you, and writes a periodized plan week by week. As you train, your Garmin activities and recovery data come back into the app, and the coach keeps the plan honest: it reviews each week, predicts your race time from your sessions, and changes the plan with you in a chat.
 
-By default, the output is a self-contained HTML file - a training plan app that allows you to add, edit, or move workouts, mark them as complete, and update key training data like heart rate zones, LTHR, threshold paces, FTP, and others. Your data is kept locally in your browser. If you'd rather have your plan(s) live on a server you control instead - with real accounts and no browser storage involved - see [Self-Hosting the Web App](#self-hosting-the-web-app-optional) below.
+- **Plans built online** from a form, with your Garmin history when it's synced: 5K to marathon, road or trail, 3 to 30 weeks.
+- **A coach you can talk to**, who reads your plan, your activities and your recovery, and proposes changes you apply (or undo) in one click.
+- **Weekly reviews**: planned against done, missed sessions, easy runs that weren't easy, how you slept.
+- **Load and recovery**: acute:chronic workload ratio, HRV, sleep, readiness, resting heart rate, with warnings when they drift.
+- **Race prediction** that moves with your training (Riegel, Daniels VDOT, Tanda, speed at race heart rate).
+- **Garmin Connect**: structured workouts sent to your watch, with paces that follow your zones when they change; activities and wellness synced back.
+- **Exports**: calendar (.ics), Zwift (.zwo), Garmin (.fit), TrainerRoad/ERG (.mrc).
+- Works on phones, and installs on the home screen.
 
-Workouts can be exported as simple calendar events (.ics), Zwift (.zwo), Garmin (.fit), or TrainerRoad/ERG (.mrc) workouts.
+Yatric is open source (MIT) and can be self-hosted.
 
-## Examples
+## Self-hosting
 
-See example training plans at [felixrieseberg.github.io/claude-coach](https://felixrieseberg.github.io/claude-coach/#demos) (demo gallery from the upstream project this fork is based on).
-
-## Installation & Creating a training plan
-
-To use this tool, you need access to Claude.ai or Claude Code with network access for Skills. Depending on user/admin settings, Skills may have full, partial, or no network access.
-
-Syncing your Garmin activity history and creating a tailored training plan takes ca. 15 minutes. Garmin sync needs Python 3 installed locally (a one-time `pip install`, see Option 1 below) - everything else only needs Node.js, via `npx`.
-
-### Installing the Skill
-
-First, [download the latest skill from GitHub Releases](https://github.com/tpuiseux/claude-coach/releases/latest/download/coach-skill.zip).
-
-**Claude.ai:**
-
-1. Open [Claude.ai Settings](https://claude.ai/settings/capabilities)
-2. Enable "Code execution and file creation"
-3. In the allowed domains list, add `*.strava.com`
-4. Scroll down to "Skills" and click "Add skill", then upload the `coach-skill.zip` file
-
-**Claude Code:**
-
-Claude Code loads skills from `~/.claude/skills/<skill-name>/` (available in all your projects) or `.claude/skills/<skill-name>/` (a single project). Extract `coach-skill.zip` into a `coach` folder in either location, so that `SKILL.md` ends up at `~/.claude/skills/coach/SKILL.md` (or `.claude/skills/coach/SKILL.md`). On macOS or Linux, adjusting the path to wherever you saved the zip:
-
-```sh
-mkdir -p ~/.claude/skills/coach
-unzip -o ~/Downloads/coach-skill.zip -d ~/.claude/skills/coach
-```
-
-Then start a new Claude Code session (or restart a running one) so it picks up the skill. See the [Claude Code skills documentation](https://code.claude.com/docs/en/skills) for details.
-
-### Creating a plan
-
-Use the most capable model available to you (as I'm writing this, that's Opus 4.5). Prompt Claude with something like this:
-
-> Help me create a training plan for the Ironman 70.3 Oceanside on March 29th 2026 using the "coach" skill.
-
-Claude will ask how you'd like to provide your fitness data. You have two options: You can either tell Claude about your fitness history manually - or you can give it access to your Garmin Connect activity history. I recommend the later - data doesn't lie and more data allows Claude to make a training plan that really fits you.
-
-#### Option 1: Connect to Garmin Connect (Recommended)
-
-The easiest way to get a personalized plan is to let Claude analyze your Garmin training history. This gives Claude real data about your current fitness, training patterns, and progress.
-
-The first time, Claude needs a small local Python environment to talk to Garmin Connect on your behalf (Garmin has no public API, so this uses the same login flow the [Garmin Connect app](https://connect.garmin.com/) itself uses, MFA included):
-
-```bash
-cd garmin-bridge && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
-```
-
-From then on, Claude runs `garmin-bridge/sync_activities.py` itself - you'll be prompted for your Garmin email, password, and MFA code (if enabled) once; a session token gets cached locally so you won't be asked again on later syncs. Your password is never stored.
-
-If you'd rather use Strava instead (still supported, just no longer the default the skill offers), ask Claude to use `npx claude-coach auth`/`sync` and it'll walk you through registering a Strava API app at [strava.com/settings/api](https://www.strava.com/settings/api).
-
-#### Option 2: Manual Entry
-
-Don't want to connect Garmin (or Strava)? No problem. You can tell Claude about your fitness directly. Be prepared to share:
-
-**Current Training (recent 4-8 weeks):**
-
-- Weekly training hours by sport (swim/bike/run)
-- Typical long session distances (longest ride, longest run, etc.)
-- Training consistency (how many weeks have you been training regularly?)
-
-**Performance Benchmarks (any you know):**
-
-- Bike FTP (Functional Threshold Power) in watts
-- Run threshold pace or recent race times (5K, 10K, half marathon, etc.)
-- Swim CSS (Critical Swim Speed) or recent time trial (e.g., 1000m time)
-- Max heart rate and/or lactate threshold heart rate
-
-### Telling Claude about your event & constraints
-
-In the next step, Claude will ask you about yourself, the event you're training for, and any constraints it should keep in mind. Examples of information you'd tell any coach:
-
-- Years in the sport
-- Previous races completed (distances and approximate times)
-- Any recent breaks from training
-- Injuries or health issues
-- Schedule limitations (work travel, family, etc.)
-- Equipment access (pool availability, trainer, etc.)
-
-Claude will use this information to create a plan tailored to your current fitness level. The more detail you provide, the better your plan will be.
-
-## Self-Hosting the Web App (Optional)
-
-Instead of a static HTML file, you can run Claude Coach as a small multi-user web app: real accounts (email + password), plans stored in a server-side SQLite database, and a UI to import/edit them - useful if you're coaching a few people, or just want your own plan to survive clearing your browser. Athletes sign up with an invite code you hand out (or you create their accounts yourself), and the app works on phones, where it can be installed on the home screen.
-
-This is optional and separate from the default skill workflow above - most people don't need it.
-
-**Requirements:** Docker (recommended), or Node.js 22.5+ directly (needed for the built-in `node:sqlite` module the app uses).
+**Requirements:** Docker, or Node.js 22.5+ (for the built-in `node:sqlite` module). The coach needs an [Anthropic API key](https://console.anthropic.com/); everything else works without it.
 
 ### 1. Build and run
 
 ```bash
-git clone https://github.com/tpuiseux/claude-coach.git
-cd claude-coach
-docker build --build-arg BASE_PATH= -t claude-coach-web .
+git clone https://github.com/tpuiseux/yatric.git
+cd yatric
+docker build --build-arg BASE_PATH= -t yatric .
 ```
 
-`BASE_PATH` is baked in at build time - leave it empty to serve from the domain root, or set it (e.g. `/training-plan`) if you're putting the app behind a reverse proxy on a subpath.
-
-Run it with a persistent volume for the database:
+`BASE_PATH` is baked in at build time: leave it empty to serve from the domain root, or set it (e.g. `/yatric`) to put the app behind a reverse proxy on a subpath.
 
 ```yaml
 # compose.yml
 services:
-  claude-coach-web:
-    image: claude-coach-web
+  yatric:
+    image: yatric
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
-      - CLAUDE_COACH_DB_PATH=/data/coach.db
+      - YATRIC_DB_PATH=/data/yatric.db
       - ORIGIN=https://your-domain.example
       - PORT=3000
-      # Behind a reverse proxy, tell the app which header carries the real
-      # client IP - otherwise every request looks like it comes from the
-      # proxy, and the per-IP limits on login (20 failures / 15 min) and
-      # sign-up (10 attempts / 15 min) apply to all users at once. Use the
-      # header your proxy actually sets, and only that one (a client could
-      # forge any other):
-      #   nginx `proxy_set_header X-Real-IP $remote_addr;`
-      #     -> ADDRESS_HEADER=X-Real-IP
-      #   nginx `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`
-      #     -> ADDRESS_HEADER=X-Forwarded-For and XFF_DEPTH=1
-      # - ADDRESS_HEADER=X-Real-IP
     volumes:
       - ./data:/data
 ```
 
-```bash
-docker compose up -d
-```
+Copy [`.env.example`](.env.example) to `.env`, fill it in, then `docker compose up -d`.
 
-### 2. Create an account
+### 2. Configuration
 
-Athletes can create their own account at `/signup`, gated by an invite code you hand out. Set it in the web app's environment (e.g. its `.env`) and restart the container:
+| Variable                                      | Purpose                                                                                                                                                                                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `YATRIC_DB_PATH`                              | SQLite database file (default `data/yatric.db`).                                                                                                                                                                                                             |
+| `ORIGIN`                                      | The public URL of the app, required by SvelteKit's form protection.                                                                                                                                                                                          |
+| `SIGNUP_INVITE_CODE`                          | Opens sign-ups at `/signup` to people who have this code. Unset: sign-ups are closed.                                                                                                                                                                        |
+| `ANTHROPIC_API_KEY`                           | Enables the coach (chat, weekly reviews, plan creation). Create the key inside a workspace, with credits on the account.                                                                                                                                     |
+| `COACH_MODEL`, `COACH_EFFORT`                 | Model and effort for the chat (default `claude-opus-5-5`, `medium`).                                                                                                                                                                                         |
+| `COACH_PLAN_MODEL`, `COACH_PLAN_EFFORT`       | Model and effort for plan creation (default `claude-opus-5-5`, `high`).                                                                                                                                                                                      |
+| `COACH_DAILY_LIMIT`, `COACH_PLAN_DAILY_LIMIT` | Messages and plans per athlete per day (default 40 and 3).                                                                                                                                                                                                   |
+| `COACH_TIMEZONE`                              | Timezone for "today" and the daily limits (default `Europe/Paris`).                                                                                                                                                                                          |
+| `GARMIN_BRIDGE_URL`, `GARMIN_BRIDGE_TOKEN`    | The Garmin bridge, see below.                                                                                                                                                                                                                                |
+| `ADDRESS_HEADER`, `XFF_DEPTH`                 | Behind a reverse proxy, the header carrying the client IP, so login and sign-up limits apply per client: `X-Real-IP` if nginx sets `proxy_set_header X-Real-IP $remote_addr;`, or `X-Forwarded-For` with `XFF_DEPTH=1`. Use only the header your proxy sets. |
 
-```
-SIGNUP_INVITE_CODE=<a code you choose>
-```
+### 3. Accounts
 
-With `SIGNUP_INVITE_CODE` unset, sign-ups are closed: `/signup` returns 404 and the login page shows no sign-up link. Change the code at any time to stop new sign-ups with the old one (existing accounts are unaffected). Attempts are capped at 10 per IP per 15 minutes.
-
-You can also create accounts yourself, with sign-ups open or not. The admin scripts need `devDependencies` (they're not in the production image), so run them from a local clone instead - pointed at the same database file your container's volume uses:
+Athletes create their account at `/signup` with the invite code. You can also create accounts yourself from a clone of the repo, pointed at the same database file:
 
 ```bash
 npm install
-CLAUDE_COACH_DB_PATH=./data/coach.db npm run create-user -- --email you@example.com --name "Your Name"
+YATRIC_DB_PATH=./data/yatric.db npm run create-user -- --email you@example.com --name "Your Name"
 ```
 
-It'll prompt for a password (or pass `--password` to script it non-interactively). Repeat for each athlete you're setting up.
+It prompts for a password (or pass `--password`).
 
-### 3. Import a plan
+A plan is created from the "Create a plan" form, or imported as a JSON file following [`src/schema/training-plan.ts`](src/schema/training-plan.ts).
 
-Generate a plan as usual with the `coach` skill, then log in to the web app and use the "Import plan" button on the dashboard to upload the resulting JSON file. Re-importing the same file later (e.g. after a plan revision) updates it in place.
+### 4. Garmin Connect (optional)
 
-If you already have a `~/.claude-coach/coach.db` from using the CLI/skill directly on this machine, `npm run migrate-to-multiuser -- --email you@example.com --plan /path/to/plan.json` attaches that existing data (synced activities, etc.) to a freshly created account in one step, instead of starting from an empty database.
+Workouts can be sent to a connected Garmin account (Settings → Garmin, then "Send to Garmin" on a workout), and connected accounts sync back their activities and recovery data (sleep, HRV, resting heart rate, training readiness, training load). The sync runs when a plan is opened and the last one is over 6 hours old, or from Settings → Garmin → "Sync now".
 
-### 4. Garmin Connect integration (optional)
-
-Workouts can be pushed straight to a connected Garmin Connect account from the web app (Settings → Garmin, then a "Send to Garmin" button on each workout). Connected accounts also sync back what was actually recorded: activities appear under the planned workouts of each day, and recovery data (sleep, HRV, resting HR, training readiness, training load) is stored per athlete. The sync runs when a plan is opened if the last one is over 6 hours old, or from Settings → Garmin → "Sync now"; the first sync fetches six weeks of activities and two weeks of recovery data.
-
-This needs a small Python bridge running alongside the web app - the app never talks to Garmin directly, and the bridge should **never** be exposed publicly. The bridge imports `garmin_lib.py`, `sync_activities.py` and `sync_wellness.py`, so keep all four files of `garmin-bridge/` together wherever it runs.
+This goes through a small Python bridge running next to the app. The app never talks to Garmin directly, and the bridge must **never** be exposed publicly. Keep the files of `garmin-bridge/` together wherever it runs.
 
 ```bash
 cd garmin-bridge
@@ -178,31 +87,24 @@ python3 -m venv venv
 GARMIN_BRIDGE_TOKEN=<a random secret> ./venv/bin/python3 garmin_bridge.py --host 127.0.0.1 --port 8420
 ```
 
-Then point the web app at it (add to its environment):
+Then set `GARMIN_BRIDGE_URL=http://127.0.0.1:8420` and the same `GARMIN_BRIDGE_TOKEN` in the app's environment. From a Docker container, use the host's address instead of `127.0.0.1` (`http://172.17.0.1:8420` on Linux, `http://host.docker.internal:8420` on Docker Desktop). Bound to anything other than `127.0.0.1`, the bridge refuses to start without a token.
 
-```
-GARMIN_BRIDGE_URL=http://127.0.0.1:8420
-GARMIN_BRIDGE_TOKEN=<the same random secret>
-```
+Each athlete gets their own Garmin session token, stored under `~/.garmin-tokens-multiuser/<user id>.json` (`--multiuser-tokenstore-dir`). Their password is used once, in memory, to open that session, which then refreshes itself.
 
-If the web app runs in Docker and the bridge runs directly on the host (as above), `127.0.0.1` inside the container won't reach it - use the host's address on the Docker bridge network instead (`http://172.17.0.1:8420` on Linux, or `http://host.docker.internal:8420` on Docker Desktop for Mac/Windows). Binding the bridge to anything other than `127.0.0.1` requires `GARMIN_BRIDGE_TOKEN`; it refuses to start without one.
-
-Each connected athlete gets their own Garmin session token, stored server-side under `~/.garmin-tokens-multiuser/<user id>.json` by default (configurable via `--multiuser-tokenstore-dir`) - never their password, which is only used once, in-memory, to establish that session. The session refreshes itself and is saved back on each refresh, so athletes normally connect once.
-
-Under systemd (or anything else without a terminal), run the bridge with its output unbuffered or check `journalctl -u <service>`: when a connection fails, the athlete only sees a short message, and the actual Garmin error is written to the bridge's stderr.
+Under systemd, read the bridge's errors with `journalctl -u <service>`: the athlete only sees a short message.
 
 #### When Garmin blocks logins from your server
 
-Garmin's sign-in (behind Cloudflare) often rejects password logins from datacenter IPs - the bridge's log then shows `HTTP 403` / `429` errors ending in `All login strategies exhausted`, and the athlete sees "Connexion a Garmin impossible". Token refreshes from the same server keep working, so the workaround is to log in once from a residential connection and copy the session over:
+Garmin's sign-in often rejects password logins from datacenter IPs (`HTTP 403` / `429`, ending in `All login strategies exhausted`). Token refreshes from the same server keep working, so log in once from a home connection and copy the session over:
 
-1. On your own computer (from a clone of this repo, with the bridge's venv installed as above), the athlete logs in - it prompts for their email, password and MFA code, and only talks to Garmin:
+1. On your computer, with the bridge's venv installed, the athlete logs in (it prompts for email, password and MFA code, and only talks to Garmin):
 
    ```bash
    cd garmin-bridge
    ./venv/bin/python3 login_local.py --out ~/garmin-token.json
    ```
 
-2. Copy the file to the server as that athlete's tokenstore, then delete the local copy:
+2. Copy the file to the server as that athlete's token, then delete the local copy:
 
    ```bash
    scp ~/garmin-token.json your-server:.garmin-tokens-multiuser/<user id>.json
@@ -210,31 +112,28 @@ Garmin's sign-in (behind Cloudflare) often rejects password logins from datacent
    rm ~/garmin-token.json
    ```
 
-3. Mark the account as connected in the web app's database (this is the row the "Connect" button writes on success):
+3. Mark the account as connected in the app's database:
 
    ```bash
-   docker exec <web container> node -e "new (require('node:sqlite').DatabaseSync)('/data/coach.db').prepare(\"INSERT INTO garmin_credentials (user_id, tokenstore_path) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET connected_at = datetime('now')\").run(<user id>, 'multiuser:<user id>')"
+   docker exec <container> node -e "new (require('node:sqlite').DatabaseSync)('/data/yatric.db').prepare(\"INSERT INTO garmin_credentials (user_id, tokenstore_path) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET connected_at = datetime('now')\").run(<user id>, 'multiuser:<user id>')"
    ```
 
-The athlete's Garmin settings then show the account as connected, and "Send to Garmin" works as usual.
+### 5. On a phone
 
-#### The standalone HTML viewer's "Send to Garmin" button
+The plan opens on today, one row per day, with plan details behind the ☰ menu. To install it, open it in Safari, then Share → **Add to Home Screen** (Android/Chrome: menu → **Install app**), and log in once inside the installed app.
 
-The static HTML plan (not the web app) can push workouts through the same bridge, from the browser, using a single Garmin account: the one whose session is saved at `--tokenstore` (default `$GARMINTOKENS`, else `~/.garminconnect`). Run the bridge once in a terminal to log that account in; if the session later expires, the bridge still starts (under systemd it can't prompt) and only that button stops working until you log in again the same way.
+## Development
 
-Because this button calls the bridge from a browser, the bridge must be reachable from it, and the page's origin must be allowed: `--allowed-origin https://your-site.example,https://www.your-site.example` (or `GARMIN_BRIDGE_ALLOWED_ORIGIN`). Requests from any other origin are rejected. If you expose the bridge through a reverse proxy for this, expose only what the button needs and block the multi-tenant routes, which act on any user id:
-
-```nginx
-location /your-path/garmin-bridge/garmin/ { return 404; }
-location /your-path/garmin-bridge/ { proxy_pass http://127.0.0.1:8420/; }
+```bash
+npm install
+npm run dev          # http://localhost:5173
+npm run test         # vitest
+npm run typecheck    # svelte-check
+npm run format       # prettier
 ```
 
-### 5. Use it on a phone
+## Credits and license
 
-The web app adapts to small screens: the plan opens on today, one row per day, with plan details and filters behind the ☰ menu. To install it like an app on an iPhone, open it in **Safari**, then Share → **Add to Home Screen** (Android/Chrome: menu → **Install app**). It then opens full-screen with its own icon. Log in once inside the installed app - iOS keeps its storage separate from Safari's. An internet connection is needed (there's no offline mode).
+Yatric started as a fork of [claude-coach](https://github.com/felixrieseberg/claude-coach) by Felix Rieseberg, whose coaching reference and plan format it builds on. MIT License, see [LICENSE.md](LICENSE.md).
 
-# About
-
-This is [tpuiseux/claude-coach](https://github.com/tpuiseux/claude-coach), a fork of [felixrieseberg/claude-coach](https://github.com/felixrieseberg/claude-coach) extended with Garmin Connect integration (activity + wellness sync, pushing workouts back to a watch), the companion `weekly-review` skill, road-race periodization for 5K/10K/half/marathon events, and the self-hosted multi-user web app described above.
-
-Claude Coach is an independent, open-source project and is not made by, endorsed by, or affiliated with Anthropic, PBC. "Claude" is a trademark of Anthropic. This tool is a skill/plugin that works with Claude products but is developed and maintained independently. License: MIT.
+Yatric is an independent project, not affiliated with or endorsed by Anthropic or Garmin. Claude is a trademark of Anthropic, PBC; Garmin and Garmin Connect are trademarks of Garmin Ltd.

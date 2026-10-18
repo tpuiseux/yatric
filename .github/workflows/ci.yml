@@ -27,9 +27,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Ensure sqlite3 CLI is available
-        run: sqlite3 --version || (sudo apt-get update && sudo apt-get install -y sqlite3)
-
       - name: Install dependencies
         run: npm ci
 
@@ -42,11 +39,5 @@ jobs:
       - name: Run tests
         run: npm run test:run
 
-      - name: Build package
-        run: npm run build:ts
-
-      - name: Build viewer
-        run: npm run build:viewer
-
-      - name: Package skill
-        run: npm run build:skill
+      - name: Build
+        run: npm run build

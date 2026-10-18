@@ -7,6 +7,6 @@ coverage
 .claude
 *.db
 *.log
-docs
-examples
 tests
+data
+garmin-bridge

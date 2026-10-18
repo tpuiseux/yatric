@@ -1,6 +1,6 @@
 import { all, execute, runScript } from "./client.js";
 import { schema } from "./schema.js";
-import { ensureConfigDir } from "../lib/config.js";
+import { ensureDbDir } from "../lib/config.js";
 import { log } from "../lib/logging.js";
 
 // Tables that predate multi-user support and need a `user_id` FK added.
@@ -36,7 +36,7 @@ function migrateLegacyColumns(): void {
 }
 
 export function migrate(): void {
-  ensureConfigDir();
+  ensureDbDir();
   runScript(schema);
   migrateLegacyColumns();
   log.success("Database schema initialized");

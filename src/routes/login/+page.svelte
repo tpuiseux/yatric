@@ -12,12 +12,12 @@
 </script>
 
 <svelte:head>
-  <title>Log in — Claude Coach</title>
+  <title>Log in — Yatric</title>
 </svelte:head>
 
 <main>
   <form method="POST" use:enhance>
-    <h1>Claude Coach</h1>
+    <h1>Yatric</h1>
 
     {#if form?.error}
       <p class="error">{form.error}</p>

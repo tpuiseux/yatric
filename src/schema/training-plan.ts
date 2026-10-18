@@ -128,8 +128,8 @@ export interface Workout {
   name: string;
   description: string;
 
-  // Duration of the whole session, warm-up and cool-down included. The viewer's
-  // calendar cards and hour totals read this, so the parts of `humanReadable`
+  // Duration of the whole session, warm-up and cool-down included. The plan
+  // page's day cards and hour totals read this, so the parts of `humanReadable`
   // (and the steps of `structure`, when present) must add up to it.
   durationMinutes?: number;
   distanceMeters?: number;
@@ -366,7 +366,7 @@ export interface TrainingPlan {
     createdAt: string;
     updatedAt: string;
     totalWeeks: number;
-    generatedBy: string; // "Claude Coach"
+    generatedBy: string; // "Yatric"
   };
   preferences: UnitPreferences;
   assessment: AthleteAssessment;

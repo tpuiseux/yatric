@@ -16,10 +16,10 @@ const input = (overrides: Partial<SignupInput> = {}): SignupInput => ({
 });
 
 describe("signup", () => {
-  const testDir = mkdtempSync(join(tmpdir(), "claude-coach-signup-test-"));
+  const testDir = mkdtempSync(join(tmpdir(), "yatric-signup-test-"));
 
   beforeAll(async () => {
-    process.env.CLAUDE_COACH_DB_PATH = join(testDir, "test.db");
+    process.env.YATRIC_DB_PATH = join(testDir, "test.db");
     const { initDatabase } = await import("../../src/db/client.js");
     const { migrate } = await import("../../src/db/migrate.js");
     await initDatabase();
@@ -28,7 +28,7 @@ describe("signup", () => {
 
   afterAll(() => {
     rmSync(testDir, { recursive: true, force: true });
-    delete process.env.CLAUDE_COACH_DB_PATH;
+    delete process.env.YATRIC_DB_PATH;
     delete process.env.SIGNUP_INVITE_CODE;
   });
 

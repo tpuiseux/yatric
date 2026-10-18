@@ -212,7 +212,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.plan.meta.event} — Claude Coach</title>
+  <title>{data.plan.meta.event} — Yatric</title>
 </svelte:head>
 
 <div class="app">
