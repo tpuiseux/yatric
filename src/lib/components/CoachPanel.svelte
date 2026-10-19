@@ -9,7 +9,6 @@
     WorkoutSnapshot,
   } from "../coach.js";
   import { renderMarkdown } from "../markdown.js";
-  import Logo from "./Logo.svelte";
   import { formatDuration } from "../utils.js";
 
   interface Props {
@@ -244,7 +243,7 @@
 {#if open}
   <aside class="coach-panel" aria-label="Coach">
     <header>
-      <h2><Logo size={22} markOnly /> Coach</h2>
+      <h2>Coach</h2>
       <div class="header-actions">
         {#if messages.length > 0}
           <button class="link" onclick={newConversation} disabled={sending}>New conversation</button
@@ -432,9 +431,6 @@
   }
 
   h2 {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
     font-size: 1rem;
     font-weight: 650;
   }

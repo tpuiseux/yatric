@@ -697,8 +697,8 @@
             <span class="about-version">v{version}</span>
           </div>
           <p class="about-description">
-            Endurance training plans built and adjusted by an AI coach, synced with your Garmin
-            watch.
+            Yet Another Triathlon Coach: endurance training plans built and adjusted by an AI coach,
+            synced with your Garmin watch.
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 # Yatric
 
-Yatric is an endurance training app with an AI coach. Fill in a short form about your race and your running, and the coach assesses where you stand, agrees a goal with you, and writes a periodized plan week by week. As you train, your Garmin activities and recovery data come back into the app, and the coach keeps the plan honest: it reviews each week, predicts your race time from your sessions, and changes the plan with you in a chat.
+**Y**et **A**nother **TRI**athlon **C**oach: an endurance training app with an AI coach. Fill in a short form about your race and your running, and the coach assesses where you stand, agrees a goal with you, and writes a periodized plan week by week. As you train, your Garmin activities and recovery data come back into the app, and the coach keeps the plan honest: it reviews each week, predicts your race time from your sessions, and changes the plan with you in a chat.
 
 - **Plans built online** from a form, with your Garmin history when it's synced: 5K to marathon, road or trail, 3 to 30 weeks.
 - **A coach you can talk to**, who reads your plan, your activities and your recovery, and proposes changes you apply (or undo) in one click.
