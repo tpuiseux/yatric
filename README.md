@@ -122,6 +122,17 @@ Garmin's sign-in often rejects password logins from datacenter IPs (`HTTP 403` /
 
 The plan opens on today, one row per day, with plan details behind the ☰ menu. To install it, open it in Safari, then Share → **Add to Home Screen** (Android/Chrome: menu → **Install app**), and log in once inside the installed app.
 
+### 6. Updating
+
+From a clone, with ssh access to the server: copy [`.env.deploy.example`](.env.deploy.example) to `.env.deploy`, fill it in, then
+
+```bash
+npm run deploy              # the web app
+npm run deploy -- --bridge  # the web app, then the Garmin bridge
+```
+
+It deploys the committed code (and refuses uncommitted changes), backs up the database and the previous code first, rebuilds and restarts the container, checks the app answers, and prints the command to roll back.
+
 ## Development
 
 ```bash

@@ -18,6 +18,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node build",
+    "deploy": "bash scripts/deploy.sh",
     "create-user": "tsx scripts/create-user.ts",
     "test": "vitest",
     "test:run": "vitest run",
