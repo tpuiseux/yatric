@@ -64,7 +64,7 @@ step "1/4 Backing up the database and the current code"
 ssh "$DEPLOY_HOST" "set -e
   cd $DEPLOY_DIR
   docker exec $DEPLOY_CONTAINER node -e \"new (require('node:sqlite').DatabaseSync)('$DEPLOY_DB').exec(\\\"VACUUM INTO '$DEPLOY_DB.bak-$TS'\\\")\" 2>/dev/null
-  tar czf app.bak-$TS.tgz app
+  if [ -d app ]; then tar czf app.bak-$TS.tgz app; else echo 'no app/ folder to back up'; fi
   echo \"database: $DEPLOY_DB.bak-$TS, code: $DEPLOY_DIR/app.bak-$TS.tgz\""
 
 step "2/4 Copying the code"
