@@ -99,7 +99,11 @@ if [[ "$WITH_BRIDGE" == true ]]; then
   ssh "$DEPLOY_HOST" "sudo systemctl restart $BRIDGE_SERVICE && sleep 2 && systemctl is-active $BRIDGE_SERVICE"
 fi
 
-ROLLBACK="ssh $DEPLOY_HOST 'cd $DEPLOY_DIR && rm -rf app && tar xzf app.bak-$TS.tgz && docker compose build --quiet && docker compose up -d'"
+if ssh "$DEPLOY_HOST" "test -f $DEPLOY_DIR/app.bak-$TS.tgz"; then
+  ROLLBACK="ssh $DEPLOY_HOST 'cd $DEPLOY_DIR && rm -rf app && tar xzf app.bak-$TS.tgz && docker compose build --quiet && docker compose up -d'"
+else
+  ROLLBACK="no previous code was backed up this time (the server had no app/ folder)"
+fi
 if [[ "$ok" == true ]]; then
   step "Deployed $COMMIT."
   echo "To roll back: $ROLLBACK"
