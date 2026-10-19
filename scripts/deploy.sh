@@ -22,10 +22,14 @@ fi
 
 : "${DEPLOY_HOST:?Set DEPLOY_HOST in .env.deploy (an ssh host)}"
 : "${DEPLOY_DIR:?Set DEPLOY_DIR in .env.deploy (the folder holding compose.yml)}"
+# Paths are on the server: a "~/" in .env.deploy was expanded to this
+# machine's home when sourced - make it relative to the ssh login's home.
+remote_path() { local p="$1"; echo "${p#"$HOME"/}"; }
+DEPLOY_DIR="$(remote_path "$DEPLOY_DIR")"
+BRIDGE_DIR="$(remote_path "${BRIDGE_DIR:-}")"
 DEPLOY_CONTAINER="${DEPLOY_CONTAINER:-yatric}"
 DEPLOY_DB="${DEPLOY_DB:-/data/yatric.db}"
 DEPLOY_URL="${DEPLOY_URL:-}"
-BRIDGE_DIR="${BRIDGE_DIR:-}"
 BRIDGE_SERVICE="${BRIDGE_SERVICE:-garmin-bridge}"
 
 WITH_BRIDGE=false
