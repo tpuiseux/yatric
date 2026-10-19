@@ -17,6 +17,7 @@
   import ActivityModal from "$lib/components/ActivityModal.svelte";
   import SettingsModal from "$lib/components/SettingsModal.svelte";
   import CoachPanel from "$lib/components/CoachPanel.svelte";
+  import TodayCard from "$lib/components/TodayCard.svelte";
   import LoadPanel from "$lib/components/LoadPanel.svelte";
   import { runSync } from "$lib/garminSyncClient.js";
   import { matchDay, type RecordedActivity } from "$lib/trainingLog.js";
@@ -229,30 +230,42 @@
     {#if errorMessage}
       <div class="error-banner">{errorMessage}</div>
     {/if}
-    {#if data.load}
-      <LoadPanel
-        load={data.load}
-        planStartDate={data.plan.meta.planStartDate}
-        onAskCoach={(text) => (coachRequest = { id: Date.now(), text })}
-      />
-    {/if}
-    <WeeksContainer
+    <TodayCard
       plan={data.plan}
       activitiesByDate={data.activitiesByDate}
       feedback={data.feedback}
+      prediction={data.prediction}
       {settings}
-      {filters}
       onWorkoutClick={handleWorkoutClick}
-      onWorkoutMove={handleWorkoutMove}
-      onAddWorkout={handleAddWorkout}
-      onActivityClick={(activity) => (openActivity = activity)}
-      weekReviews={data.weekReviews}
-      onReviewWeek={(week) =>
-        (coachRequest = {
-          id: Date.now(),
-          text: `Let's go over week ${week.weekNumber} (${week.startDate} to ${week.endDate}).`,
-        })}
     />
+    {#if data.load}
+      <div class="load">
+        <LoadPanel
+          load={data.load}
+          planStartDate={data.plan.meta.planStartDate}
+          onAskCoach={(text) => (coachRequest = { id: Date.now(), text })}
+        />
+      </div>
+    {/if}
+    <div class="week">
+      <WeeksContainer
+        plan={data.plan}
+        activitiesByDate={data.activitiesByDate}
+        feedback={data.feedback}
+        {settings}
+        {filters}
+        onWorkoutClick={handleWorkoutClick}
+        onWorkoutMove={handleWorkoutMove}
+        onAddWorkout={handleAddWorkout}
+        onActivityClick={(activity) => (openActivity = activity)}
+        weekReviews={data.weekReviews}
+        onReviewWeek={(week) =>
+          (coachRequest = {
+            id: Date.now(),
+            text: `Let's go over week ${week.weekNumber} (${week.startDate} to ${week.endDate}).`,
+          })}
+      />
+    </div>
   </main>
 </div>
 
@@ -306,9 +319,16 @@
 <style>
   .main-content {
     flex: 1;
+    min-width: 0;
     margin-left: var(--sidebar-width);
     padding: 2rem 2rem 5rem; /* room for the Coach button */
     max-width: 1400px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .load {
+    margin-bottom: 0.25rem;
   }
 
   @media (max-width: 800px) {
@@ -319,6 +339,16 @@
     .main-content {
       margin-left: 0;
       padding: 1rem 0.75rem 5rem;
+    }
+
+    /* Phone: today and the week first, the recovery data after. */
+    .week {
+      order: 1;
+    }
+
+    .load {
+      order: 2;
+      margin: 1.25rem 0 0;
     }
   }
 

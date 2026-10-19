@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base } from "$app/paths";
   import type { TrainingPlan, Sport } from "../../schema/training-plan.js";
-  import { formatEventDate, getDaysToEvent, getSportIcon } from "../utils.js";
+  import { formatEventDate, getDaysToEvent, getSportIcon, getTodayISO } from "../utils.js";
   import type { RacePrediction as Prediction } from "../racePrediction.js";
   import type { Settings } from "../settings.js";
   import Logo from "./Logo.svelte";
@@ -58,7 +58,7 @@
 
   // The week holding today, or null before the plan starts / after it ends.
   const currentWeek = $derived.by(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayISO();
     return plan.weeks?.find((w) => w.startDate <= today && today <= w.endDate) ?? null;
   });
   // How far through the plan's calendar today is.
@@ -97,18 +97,10 @@
 <svelte:window onkeydown={(e) => e.key === "Escape" && (drawerOpen = false)} />
 
 <header class="mobile-bar">
-  <a class="mobile-back" href="{base}/" aria-label="All plans">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-      <path d="M15 18l-6-6 6-6" />
-    </svg>
-  </a>
+  <a class="mobile-back" href="{base}/" aria-label="All plans"><Logo size={22} /></a>
   <div class="mobile-title">
     <div class="mobile-event">{plan.meta?.event ?? "Training Plan"}</div>
-    <div class="mobile-meta">
-      {daysToEvent} days left{currentWeek
-        ? ` · week ${currentWeek.weekNumber}/${plan.meta?.totalWeeks ?? plan.weeks.length}`
-        : ""}
-    </div>
+    <div class="mobile-meta">{formatEventDate(plan.meta?.eventDate ?? "")}</div>
   </div>
   <button
     class="mobile-menu-btn"
@@ -500,22 +492,31 @@
       border-bottom: 1px solid var(--border-subtle);
     }
 
-    .mobile-back,
-    .mobile-menu-btn {
-      position: relative;
+    .mobile-back {
       flex-shrink: 0;
-      width: 44px;
+      width: 64px;
       height: 44px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      padding-left: 0.5rem;
+      text-decoration: none;
+    }
+
+    .mobile-menu-btn {
+      position: relative;
+      flex-shrink: 0;
+      width: 64px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 0.5rem;
       border: none;
       border-radius: 10px;
       background: transparent;
       color: var(--text-secondary);
     }
 
-    .mobile-back svg,
     .mobile-menu-btn svg {
       width: 22px;
       height: 22px;
@@ -548,8 +549,8 @@
     .mobile-meta {
       font-family: var(--font-display);
       font-variant-numeric: tabular-nums;
-      font-size: 0.7rem;
-      color: var(--accent);
+      font-size: 0.72rem;
+      color: var(--text-secondary);
     }
 
     .drawer-backdrop {

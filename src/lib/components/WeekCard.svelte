@@ -44,8 +44,6 @@
 
   let dragOverDate = $state<string | null>(null);
 
-  const phaseName = $derived((week.phase ?? "base").toLowerCase());
-
   function handleDragOver(e: DragEvent, date: string) {
     e.preventDefault();
     dragOverDate = date;
@@ -68,8 +66,6 @@
 <div class="week-card" style="animation-delay: {animationDelay}s">
   <div class="week-header">
     <div class="week-title">
-      <span class="week-number">W{week.weekNumber}</span>
-      <span class="week-phase {phaseName}">{week.phase ?? "Base"}</span>
       <span class="week-focus">{week.focus ?? ""}</span>
     </div>
     <div class="week-hours"><span>{week.targetHours ?? 0}</span> hrs</div>
@@ -213,8 +209,8 @@
     border: 1px solid var(--border-subtle);
     overflow: hidden;
     opacity: 0;
-    transform: translateY(20px);
-    animation: slideUp 0.5s ease forwards;
+    transform: translateY(8px);
+    animation: slideUp 0.25s ease forwards;
   }
 
   @keyframes slideUp {
@@ -237,49 +233,6 @@
     display: flex;
     align-items: center;
     gap: 1rem;
-  }
-
-  .week-number {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding: 0.3rem 0.6rem;
-    border-radius: 6px;
-    background: var(--bg-primary);
-    color: var(--text-secondary);
-  }
-
-  .week-phase {
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .week-phase.base {
-    color: var(--phase-base);
-  }
-  .week-phase.build {
-    color: var(--phase-build);
-  }
-  .week-phase.peak {
-    color: var(--phase-peak);
-  }
-  .week-phase.taper {
-    color: var(--phase-taper);
-  }
-  .week-phase.recovery {
-    color: var(--phase-recovery);
-  }
-  .week-phase.rebuild {
-    color: var(--phase-rebuild);
-  }
-  .week-phase.survival {
-    color: var(--race);
-  }
-  .week-phase.bank {
-    color: var(--bike);
   }
 
   .week-focus {
@@ -649,21 +602,22 @@
      * tuck it under the date, in the otherwise empty left column. */
     .day-column {
       position: relative;
-      min-height: 6.75rem;
+      min-height: 5.5rem;
     }
 
     .day-column.today {
-      min-height: 8.25rem; /* room for the TODAY badge above the "+" */
+      min-height: 7rem; /* room for the TODAY badge above the "+" */
     }
 
     .add-workout-btn {
       position: absolute;
-      left: 0.75rem;
-      bottom: 0.75rem;
-      width: 2.5rem;
-      height: 2rem;
+      left: 0.85rem;
+      bottom: 0.6rem;
+      width: 2rem;
+      height: 1.6rem;
       margin: 0;
       padding: 0;
+      border-color: transparent;
     }
   }
 </style>
