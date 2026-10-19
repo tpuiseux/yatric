@@ -197,7 +197,8 @@
   }
 
   .time {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 1.8rem;
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -291,7 +292,8 @@
   }
 
   .value {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
   }
 
   .detail,

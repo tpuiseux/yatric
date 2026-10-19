@@ -9,6 +9,7 @@
     WorkoutSnapshot,
   } from "../coach.js";
   import { renderMarkdown } from "../markdown.js";
+  import Logo from "./Logo.svelte";
   import { formatDuration } from "../utils.js";
 
   interface Props {
@@ -243,7 +244,7 @@
 {#if open}
   <aside class="coach-panel" aria-label="Coach">
     <header>
-      <h2>Coach</h2>
+      <h2><Logo size={22} markOnly /> Coach</h2>
       <div class="header-actions">
         {#if messages.length > 0}
           <button class="link" onclick={newConversation} disabled={sending}>New conversation</button
@@ -397,7 +398,7 @@
     border-radius: 999px;
     border: 1px solid var(--border-medium);
     background: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     font-weight: 600;
     font-size: 0.9rem;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
@@ -431,8 +432,11 @@
   }
 
   h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 1rem;
-    font-weight: 700;
+    font-weight: 650;
   }
 
   .header-actions {
@@ -549,7 +553,8 @@
   }
 
   .markdown :global(code) {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.8rem;
   }
 
@@ -635,7 +640,7 @@
   button.primary {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     font-weight: 600;
   }
 
@@ -653,7 +658,7 @@
   .composer button.primary {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
   }
 
   button:disabled {
@@ -670,8 +675,8 @@
     font-size: 0.82rem;
     padding: 0.5rem 0.7rem;
     border-radius: 8px;
-    background: #3a1414;
-    color: #f87171;
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 
   .composer {

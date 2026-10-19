@@ -209,7 +209,7 @@
 <style>
   .week-card {
     background: var(--bg-secondary);
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     border: 1px solid var(--border-subtle);
     overflow: hidden;
     opacity: 0;
@@ -240,7 +240,8 @@
   }
 
   .week-number {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     font-weight: 500;
     padding: 0.3rem 0.6rem;
@@ -268,11 +269,17 @@
   .week-phase.taper {
     color: var(--phase-taper);
   }
+  .week-phase.recovery {
+    color: var(--phase-recovery);
+  }
+  .week-phase.rebuild {
+    color: var(--phase-rebuild);
+  }
   .week-phase.survival {
-    color: var(--text-muted);
+    color: var(--race);
   }
   .week-phase.bank {
-    color: var(--phase-base);
+    color: var(--bike);
   }
 
   .week-focus {
@@ -281,7 +288,8 @@
   }
 
   .week-hours {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.9rem;
     color: var(--text-secondary);
   }
@@ -310,7 +318,7 @@
   }
 
   .flag.warning {
-    color: var(--accent);
+    color: var(--warning);
   }
 
   .flag.info {
@@ -397,7 +405,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     background: var(--accent);
     padding: 0.1rem 0.35rem;
     border-radius: 4px;
@@ -460,7 +468,8 @@
   }
 
   .recorded-summary {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     color: var(--text-muted);
   }
 
@@ -482,7 +491,8 @@
   }
 
   .day-date {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     color: var(--text-muted);
   }

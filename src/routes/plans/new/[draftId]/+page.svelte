@@ -2,6 +2,7 @@
   import { onDestroy, untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { base } from "$app/paths";
+  import Logo from "$lib/components/Logo.svelte";
   import type { DraftView } from "$lib/planDraft.js";
   import { renderMarkdown } from "$lib/markdown.js";
   import { formatDuration } from "$lib/utils.js";
@@ -84,7 +85,10 @@
 </svelte:head>
 
 <main>
-  <a class="back" href="{base}/">← All plans</a>
+  <nav class="top">
+    <a class="home" href="{base}/" aria-label="All plans"><Logo size={26} /></a>
+    <a class="back" href="{base}/">All plans</a>
+  </nav>
   <h1>{draft.form.raceName}</h1>
   <p class="sub">
     {shortDate(draft.form.raceDate)} · {draft.totalWeeks} weeks from {shortDate(
@@ -218,6 +222,18 @@
     padding: 0 1.5rem;
   }
 
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.75rem;
+  }
+
+  .home {
+    display: inline-flex;
+    text-decoration: none;
+  }
+
   .back {
     font-size: 0.85rem;
     color: var(--text-muted);
@@ -225,8 +241,9 @@
   }
 
   h1 {
-    font-size: 1.5rem;
-    margin: 1rem 0 0.25rem;
+    font-size: 1.75rem;
+    font-weight: 650;
+    margin: 0 0 0.25rem;
   }
 
   .sub {
@@ -359,7 +376,7 @@
   .primary {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     font-weight: 700;
   }
 
@@ -390,8 +407,8 @@
   .error {
     padding: 0.6rem 0.8rem;
     border-radius: 8px;
-    background: #3a1414;
-    color: #f87171;
+    background: var(--danger-bg);
+    color: var(--danger);
     font-size: 0.85rem;
     margin-bottom: 0.75rem;
   }
@@ -419,7 +436,8 @@
   }
 
   .num {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     color: var(--text-muted);
   }
 
@@ -436,7 +454,8 @@
   }
 
   .hours {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     color: var(--text-secondary);
   }
 
@@ -475,7 +494,8 @@
 
   .dur {
     color: var(--text-secondary);
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.8rem;
   }
 

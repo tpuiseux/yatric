@@ -811,7 +811,7 @@
 
   .settings-tab.active {
     background: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
   }
 
   .modal-body {
@@ -874,7 +874,7 @@
 
   .theme-btn.active {
     background: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     border-color: var(--accent);
   }
 
@@ -925,7 +925,8 @@
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
     color: var(--text-primary);
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.9rem;
     width: 80px;
     text-align: center;
@@ -934,7 +935,7 @@
   .recalc-btn {
     padding: 0.5rem 1rem;
     background: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     border: none;
     border-radius: 6px;
     font-size: 0.8rem;
@@ -943,7 +944,7 @@
   }
 
   .recalc-btn:hover {
-    background: #fbbf24;
+    background: var(--warning);
   }
 
   .zones-grid {
@@ -968,7 +969,8 @@
   }
 
   .zone-badge {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     font-weight: 600;
     padding: 0.3rem 0.5rem;
@@ -993,8 +995,8 @@
     color: #f97316;
   }
   .zone-badge.z5 {
-    background: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 
   .zone-name {
@@ -1009,7 +1011,8 @@
     border-radius: 6px;
     padding: 0.4rem 0.5rem;
     color: var(--text-primary);
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.8rem;
     text-align: center;
     width: 100%;
@@ -1143,12 +1146,12 @@
   .data-btn.export:hover {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
   }
 
   .data-btn.danger:hover:not(:disabled) {
-    background: #ef4444;
-    border-color: #ef4444;
+    background: var(--danger-strong);
+    border-color: var(--danger-strong);
     color: white;
   }
 
@@ -1164,7 +1167,7 @@
   }
 
   .import-status.error {
-    color: #f87171;
+    color: var(--danger);
   }
 
   .about-header {
@@ -1182,7 +1185,8 @@
   }
 
   .about-version {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.8rem;
     color: var(--text-muted);
     background: var(--bg-tertiary);
@@ -1204,7 +1208,7 @@
   }
 
   .sync-error {
-    color: #f87171;
+    color: var(--danger);
   }
 
   /* Phone: full-screen sheet; tabs scroll sideways instead of wrapping;

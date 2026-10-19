@@ -65,13 +65,18 @@
 
 <style>
   .workout-card {
+    --c: var(--text-muted);
     width: 100%;
     text-align: left;
-    padding: 0.6rem 0.75rem;
-    border-radius: 8px;
+    padding: 0.6rem 0.75rem 0.6rem 0.85rem;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: all var(--transition-fast);
-    border: 1px solid transparent;
+    transition:
+      transform var(--transition-fast),
+      box-shadow var(--transition-fast),
+      border-color var(--transition-fast);
+    border: 1px solid color-mix(in srgb, var(--c) 14%, transparent);
+    background: color-mix(in srgb, var(--c) 8%, var(--bg-tertiary));
     position: relative;
     overflow: hidden;
   }
@@ -83,49 +88,39 @@
     top: 0;
     bottom: 0;
     width: 3px;
+    background: var(--c);
   }
 
   .workout-card.swim {
-    background: var(--swim-glow);
-  }
-  .workout-card.swim::before {
-    background: var(--swim);
+    --c: var(--swim);
   }
   .workout-card.bike {
-    background: var(--bike-glow);
-  }
-  .workout-card.bike::before {
-    background: var(--bike);
+    --c: var(--bike);
   }
   .workout-card.run {
-    background: var(--run-glow);
-  }
-  .workout-card.run::before {
-    background: var(--run);
+    --c: var(--run);
   }
   .workout-card.strength {
-    background: var(--strength-glow);
-  }
-  .workout-card.strength::before {
-    background: var(--strength);
+    --c: var(--strength);
   }
   .workout-card.brick {
-    background: var(--brick-glow);
-  }
-  .workout-card.brick::before {
-    background: var(--brick);
+    --c: var(--brick);
   }
   .workout-card.race {
-    background: var(--race-glow);
-  }
-  .workout-card.race::before {
-    background: var(--race);
+    --c: var(--race);
+    background: color-mix(in srgb, var(--c) 16%, var(--bg-tertiary));
   }
   .workout-card.rest {
-    background: var(--rest-glow);
+    --c: var(--rest);
+    background: transparent;
+    border-style: dashed;
+    border-color: var(--border-medium);
   }
   .workout-card.rest::before {
-    background: var(--rest);
+    display: none;
+  }
+  .workout-card.rest .workout-name {
+    color: var(--text-secondary);
   }
 
   /* Hover-only: on touch screens :hover sticks after a tap, leaving the
@@ -133,7 +128,8 @@
   @media (hover: hover) {
     .workout-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      border-color: color-mix(in srgb, var(--c) 40%, transparent);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
     }
   }
 
@@ -168,26 +164,12 @@
     margin-bottom: 0.2rem;
   }
 
-  .workout-card.swim .workout-sport {
-    color: var(--swim);
+  .workout-sport {
+    color: var(--c);
   }
-  .workout-card.bike .workout-sport {
-    color: var(--bike);
-  }
-  .workout-card.run .workout-sport {
-    color: var(--run);
-  }
-  .workout-card.strength .workout-sport {
-    color: var(--strength);
-  }
-  .workout-card.brick .workout-sport {
-    color: var(--brick);
-  }
-  .workout-card.race .workout-sport {
-    color: var(--race);
-  }
+
   .workout-card.rest .workout-sport {
-    color: var(--rest);
+    color: var(--text-muted);
   }
 
   .workout-name {
@@ -206,7 +188,8 @@
   }
 
   .workout-duration {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.7rem;
     color: var(--text-muted);
   }
@@ -224,20 +207,21 @@
     margin-top: 0.35rem;
     padding-top: 0.35rem;
     border-top: 1px solid var(--border-subtle);
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.7rem;
     color: var(--text-secondary);
   }
 
   .recorded-check {
-    color: var(--bike);
+    color: var(--success);
     font-weight: 700;
     margin-right: 0.2rem;
   }
 
   .feedback-badge.pain {
-    background: rgba(239, 68, 68, 0.15);
-    color: #f87171;
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 
   @media (max-width: 800px) {

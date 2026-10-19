@@ -842,7 +842,8 @@
   }
 
   .modal-date {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.85rem;
     color: var(--text-muted);
     margin-top: 0.25rem;
@@ -888,7 +889,8 @@
   }
 
   .modal-stat-value {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 1.5rem;
     font-weight: 500;
     color: var(--text-primary);
@@ -934,7 +936,8 @@
     background: var(--bg-tertiary);
     border-radius: 12px;
     padding: 1rem;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.85rem;
     line-height: 1.8;
     color: var(--text-secondary);
@@ -991,7 +994,8 @@
   }
 
   .form-textarea.mono {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.85rem;
     line-height: 1.6;
   }
@@ -1034,9 +1038,9 @@
   }
 
   .icon-btn.delete:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: #ef4444;
-    color: #ef4444;
+    background: var(--danger-bg);
+    border-color: var(--danger-strong);
+    color: var(--danger-strong);
   }
 
   .icon-btn.edit:hover {
@@ -1048,7 +1052,7 @@
   .icon-btn.garmin:hover:not(:disabled) {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
   }
 
   .icon-btn:disabled {
@@ -1070,11 +1074,11 @@
 
   .complete-btn.mark {
     background: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
   }
 
   .complete-btn.mark:hover {
-    background: #fbbf24;
+    background: var(--warning);
     transform: translateY(-2px);
   }
 
@@ -1110,13 +1114,13 @@
     font-size: 0.9rem;
     font-weight: 500;
     background: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     border: none;
     transition: all var(--transition-fast);
   }
 
   .save-btn:hover:not(:disabled) {
-    background: #fbbf24;
+    background: var(--warning);
     transform: translateY(-2px);
   }
 
@@ -1160,14 +1164,14 @@
     border-radius: 10px;
     font-size: 0.9rem;
     font-weight: 500;
-    background: #ef4444;
+    background: var(--danger-strong);
     color: white;
     border: none;
     transition: all var(--transition-fast);
   }
 
   .delete-btn:hover {
-    background: #dc2626;
+    background: color-mix(in srgb, var(--danger-strong) 85%, black);
   }
 
   .footer-right {
@@ -1191,7 +1195,8 @@
   }
 
   .recorded-row-summary {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.8rem;
     color: var(--text-muted);
   }
@@ -1230,14 +1235,15 @@
     border: 1px solid var(--border-medium);
     background: var(--bg-tertiary);
     color: var(--text-secondary);
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.9rem;
   }
 
   .rpe-btn.selected {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     font-weight: 700;
   }
 
@@ -1295,13 +1301,13 @@
     padding: 0.75rem 0.5rem;
     border: none;
     background: transparent;
-    color: #f87171;
+    color: var(--danger);
     font-size: 0.85rem;
   }
 
   .fb-error {
     font-size: 0.85rem;
-    color: #f87171;
+    color: var(--danger);
   }
 
   .fb-hint {
@@ -1325,8 +1331,8 @@
   }
 
   .fb-pill.pain {
-    background: rgba(239, 68, 68, 0.12);
-    color: #f87171;
+    background: var(--danger-bg);
+    color: var(--danger);
   }
 
   .fb-notes {
@@ -1513,7 +1519,7 @@
   }
 
   .export-status.error {
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-strong);
+    background: var(--danger-bg);
   }
 </style>

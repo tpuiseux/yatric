@@ -4,6 +4,7 @@
   import { formatEventDate, getDaysToEvent, getSportIcon } from "../utils.js";
   import type { RacePrediction as Prediction } from "../racePrediction.js";
   import type { Settings } from "../settings.js";
+  import Logo from "./Logo.svelte";
   import RacePrediction from "./RacePrediction.svelte";
 
   interface Props {
@@ -52,11 +53,21 @@
       completedCount,
       totalHours: Math.round(totalMinutes / 60),
       sportHours,
-      progress: totalWorkouts > 0 ? Math.round((completedCount / totalWorkouts) * 100) : 0,
     };
   });
 
-  const progressOffset = $derived(377 - (stats.progress / 100) * 377);
+  // The week holding today, or null before the plan starts / after it ends.
+  const currentWeek = $derived.by(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return plan.weeks?.find((w) => w.startDate <= today && today <= w.endDate) ?? null;
+  });
+  // How far through the plan's calendar today is.
+  const elapsed = $derived.by(() => {
+    const start = Date.parse(plan.meta?.planStartDate ?? "");
+    const end = Date.parse(plan.meta?.eventDate ?? "");
+    if (!start || !end || end <= start) return 0;
+    return Math.min(1, Math.max(0, (Date.now() - start) / (end - start)));
+  });
   const daysToEvent = $derived(getDaysToEvent(plan.meta?.eventDate ?? ""));
 
   const availableSports = $derived(
@@ -94,7 +105,9 @@
   <div class="mobile-title">
     <div class="mobile-event">{plan.meta?.event ?? "Training Plan"}</div>
     <div class="mobile-meta">
-      {daysToEvent} days left · {stats.progress}% done
+      {daysToEvent} days left{currentWeek
+        ? ` · week ${currentWeek.weekNumber}/${plan.meta?.totalWeeks ?? plan.weeks.length}`
+        : ""}
     </div>
   </div>
   <button
@@ -118,7 +131,7 @@
 
 <aside class="sidebar" class:open={drawerOpen}>
   <div class="sidebar-top">
-    <a class="back-link" href="{base}/">← All plans</a>
+    <a class="home-link" href="{base}/" aria-label="All plans"><Logo size={24} /></a>
     <button class="drawer-close" onclick={() => (drawerOpen = false)} aria-label="Close">×</button>
   </div>
 
@@ -128,47 +141,35 @@
     <div class="athlete-name">{plan.meta?.athlete ?? "Athlete"}</div>
   </div>
 
-  <div class="progress-section">
-    <div class="progress-ring-container">
-      <svg class="progress-ring" width="140" height="140">
-        <defs>
-          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" style="stop-color: var(--accent)" />
-            <stop offset="100%" style="stop-color: var(--run)" />
-          </linearGradient>
-        </defs>
-        <circle class="progress-ring-bg" cx="70" cy="70" r="60" />
-        <circle
-          class="progress-ring-fill"
-          cx="70"
-          cy="70"
-          r="60"
-          style="stroke-dashoffset: {progressOffset}"
-        />
-      </svg>
-      <div class="progress-text">
-        <div class="progress-percent">{stats.progress}%</div>
-        <div class="progress-label">Complete</div>
+  <div class="countdown">
+    <div class="countdown-row">
+      <div>
+        <span class="countdown-value num">{Math.max(0, daysToEvent)}</span>
+        <span class="countdown-unit">{daysToEvent === 1 ? "day" : "days"} to race day</span>
       </div>
+      {#if currentWeek}
+        <span class="countdown-week num">
+          Week {currentWeek.weekNumber}/{plan.meta?.totalWeeks ?? plan.weeks.length}
+        </span>
+      {/if}
+    </div>
+    <div class="countdown-bar" aria-hidden="true">
+      <span style:width="{elapsed * 100}%"></span>
     </div>
   </div>
 
   <div class="stats-grid">
     <div class="stat-card">
-      <div class="stat-value">{plan.meta?.totalWeeks ?? 0}</div>
+      <div class="stat-value num">{plan.meta?.totalWeeks ?? 0}</div>
       <div class="stat-label">Weeks</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">{stats.totalHours}</div>
+      <div class="stat-value num">{stats.totalHours}</div>
       <div class="stat-label">Hours</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">{stats.totalWorkouts}</div>
-      <div class="stat-label">Workouts</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">{daysToEvent}</div>
-      <div class="stat-label">Days Left</div>
+      <div class="stat-value num">{stats.completedCount}<small>/{stats.totalWorkouts}</small></div>
+      <div class="stat-label">Done</div>
     </div>
   </div>
 
@@ -234,17 +235,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: -1rem;
+    margin-bottom: 0.25rem;
   }
 
-  .back-link {
-    font-size: 0.8rem;
-    color: var(--text-muted);
+  .home-link {
+    display: inline-flex;
     text-decoration: none;
-  }
-
-  .back-link:hover {
-    color: var(--text-primary);
   }
 
   .drawer-close,
@@ -257,10 +253,10 @@
     width: var(--sidebar-width);
     background: var(--bg-secondary);
     border-right: 1px solid var(--border-subtle);
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 1.25rem 2rem;
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 1.5rem;
     position: fixed;
     top: 0;
     left: 0;
@@ -269,110 +265,111 @@
   }
 
   .event-header {
-    text-align: center;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border-subtle);
+    padding-top: 0.5rem;
   }
 
   .event-name {
-    font-size: 1.5rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.5rem;
+    font-size: 1.55rem;
+    font-weight: 650;
+    margin-bottom: 0.35rem;
   }
 
   .event-date {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 0.85rem;
-    color: var(--accent);
-    font-weight: 500;
-    letter-spacing: 0.05em;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
   }
 
   .athlete-name {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
-    margin-top: 0.5rem;
+    margin-top: 0.15rem;
   }
 
-  .progress-section {
-    text-align: center;
+  .countdown {
+    padding: 1rem 1.1rem 1.1rem;
+    border-radius: var(--radius-md);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
   }
 
-  .progress-ring-container {
-    position: relative;
-    width: 140px;
-    height: 140px;
-    margin: 0 auto;
+  .countdown-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
   }
 
-  .progress-ring {
-    transform: rotate(-90deg);
+  .countdown-value {
+    display: block;
+    font-size: 2.6rem;
+    font-weight: 650;
+    line-height: 1;
+    color: var(--accent);
   }
 
-  .progress-ring-bg {
-    fill: none;
-    stroke: var(--bg-tertiary);
-    stroke-width: 8;
+  .countdown-unit {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
   }
 
-  .progress-ring-fill {
-    fill: none;
-    stroke: url(#progressGradient);
-    stroke-width: 8;
-    stroke-linecap: round;
-    stroke-dasharray: 377;
-    transition: stroke-dashoffset 1s ease-out;
+  .countdown-week {
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: var(--bg-elevated);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
   }
 
-  .progress-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
+  .countdown-bar {
+    height: 4px;
+    margin-top: 1rem;
+    border-radius: 2px;
+    background: var(--bg-elevated);
+    overflow: hidden;
   }
 
-  .progress-percent {
-    font-size: 1.8rem;
-    font-weight: 700;
-  }
-
-  .progress-label {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .countdown-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
   }
 
   .stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
   }
 
   .stat-card {
-    background: var(--bg-tertiary);
-    border-radius: 10px;
-    padding: 0.9rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 0.7rem 0.5rem;
     text-align: center;
   }
 
   .stat-value {
-    font-size: 1.4rem;
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: 650;
+    line-height: 1.2;
+  }
+
+  .stat-value small {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
   }
 
   .stat-label {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 0.2rem;
+    letter-spacing: 0.06em;
+    margin-top: 0.15rem;
   }
 
   .settings-btn {
@@ -484,7 +481,7 @@
   .filter-chip.active {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     font-weight: 600;
   }
 
@@ -549,7 +546,8 @@
     }
 
     .mobile-meta {
-      font-family: "JetBrains Mono", monospace;
+      font-family: var(--font-display);
+      font-variant-numeric: tabular-nums;
       font-size: 0.7rem;
       color: var(--accent);
     }
@@ -592,9 +590,8 @@
       font-size: 1.6rem;
     }
 
-    .back-link {
+    .home-link {
       padding: 0.6rem 0;
-      font-size: 0.9rem;
     }
 
     .sport-stat {

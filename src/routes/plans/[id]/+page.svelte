@@ -340,8 +340,8 @@
     padding: 0.75rem 1rem;
     margin-bottom: 1rem;
     border-radius: 8px;
-    background: #3a1414;
-    color: #f87171;
+    background: var(--danger-bg);
+    color: var(--danger);
     font-size: 0.85rem;
   }
 </style>

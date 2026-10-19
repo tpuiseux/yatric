@@ -304,7 +304,7 @@
     <div class="signals" role="status">
       <ul>
         {#each signals as s (s.key)}
-          <li>⚠ {s.text}</li>
+          <li><span class="warn-icon">⚠</span> {s.text}</li>
         {/each}
       </ul>
       <button onclick={askCoach}>Ask the coach</button>
@@ -504,7 +504,8 @@
   }
 
   .tile-value {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 1.05rem;
     font-weight: 600;
     margin-top: 0.1rem;
@@ -523,10 +524,15 @@
     gap: 0.5rem 1rem;
     margin-top: 0.75rem;
     padding: 0.6rem 0.8rem;
-    border-radius: 10px;
-    border: 1px solid var(--accent);
-    background: var(--accent-glow);
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+    background: var(--warning-bg);
+    color: var(--text-primary);
     font-size: 0.82rem;
+  }
+
+  .warn-icon {
+    color: var(--warning);
   }
 
   .signals ul {
@@ -540,7 +546,7 @@
     border-radius: 8px;
     border: none;
     background: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     font-weight: 600;
     font-size: 0.8rem;
   }
@@ -670,7 +676,8 @@
   }
 
   .tooltip-value {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     margin-left: 0.6rem;
   }
 

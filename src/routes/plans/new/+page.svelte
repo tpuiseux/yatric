@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { base } from "$app/paths";
+  import Logo from "$lib/components/Logo.svelte";
   import { RACE_DISTANCES, WEEKDAYS, type PlanForm, type Weekday } from "$lib/planDraft.js";
   import type { PageData } from "./$types";
 
@@ -89,7 +90,10 @@
 </svelte:head>
 
 <main>
-  <a class="back" href="{base}/">← All plans</a>
+  <nav class="top">
+    <a class="home" href="{base}/" aria-label="All plans"><Logo size={26} /></a>
+    <a class="back" href="{base}/">All plans</a>
+  </nav>
   <h1>Create a training plan</h1>
   <p class="intro">
     Tell the coach about your race and your running. It will assess where you stand and suggest an
@@ -299,6 +303,18 @@
     padding: 0 1.5rem;
   }
 
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.75rem;
+  }
+
+  .home {
+    display: inline-flex;
+    text-decoration: none;
+  }
+
   .back {
     font-size: 0.85rem;
     color: var(--text-muted);
@@ -306,8 +322,9 @@
   }
 
   h1 {
-    font-size: 1.5rem;
-    margin: 1rem 0 0.5rem;
+    font-size: 1.75rem;
+    font-weight: 650;
+    margin: 0 0 0.5rem;
   }
 
   .intro {
@@ -403,7 +420,7 @@
   .day.on {
     background: var(--accent);
     border-color: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     font-weight: 600;
   }
 
@@ -412,7 +429,7 @@
     border-radius: 10px;
     border: none;
     background: var(--accent);
-    color: var(--bg-primary);
+    color: var(--accent-ink);
     font-weight: 700;
     font-size: 0.95rem;
   }
@@ -424,8 +441,8 @@
   .error {
     padding: 0.6rem 0.8rem;
     border-radius: 8px;
-    background: #3a1414;
-    color: #f87171;
+    background: var(--danger-bg);
+    color: var(--danger);
     font-size: 0.85rem;
     margin-bottom: 1rem;
   }

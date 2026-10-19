@@ -69,6 +69,11 @@
     }
     return true;
   }
+
+  const currentWeek = $derived.by(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return plan.weeks?.find((w) => w.startDate <= today && today <= w.endDate)?.weekNumber ?? null;
+  });
 </script>
 
 <div class="phase-timeline">
@@ -77,6 +82,9 @@
     {@const phaseName = phase.name.toLowerCase()}
     <button
       class="phase-segment {phaseName}"
+      class:current={currentWeek !== null &&
+        phase.startWeek <= currentWeek &&
+        currentWeek <= phase.endWeek}
       style="flex: {weeks}"
       onclick={() => {
         const weekCard = document.querySelector(`[data-week="${phase.startWeek}"]`);
@@ -119,23 +127,30 @@
   }
 
   .phase-segment {
+    --c: var(--text-muted);
     flex: 1;
-    height: 28px;
+    min-width: 0;
+    height: 30px;
     border-radius: 6px;
     border: none;
+    border-top: 2px solid var(--c);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition:
+      background var(--transition-fast),
+      transform var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(135deg, #64748b, #475569); /* fallback */
+    background: color-mix(in srgb, var(--c) 10%, transparent);
+  }
+
+  .phase-segment.current {
+    background: color-mix(in srgb, var(--c) 24%, transparent);
   }
 
   @media (hover: hover) {
     .phase-segment:hover {
-      filter: brightness(1.2);
+      background: color-mix(in srgb, var(--c) 20%, transparent);
     }
   }
 
@@ -144,41 +159,40 @@
   }
 
   .phase-label {
-    padding: 0 4px;
+    padding: 0 6px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 0.65rem;
-    font-weight: 600;
+    font-size: 0.66rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.06em;
+    color: var(--c);
   }
 
   .phase-segment.base {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    --c: var(--phase-base);
   }
   .phase-segment.build {
-    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    --c: var(--phase-build);
   }
   .phase-segment.peak {
-    background: linear-gradient(135deg, #ec4899, #db2777);
+    --c: var(--phase-peak);
   }
   .phase-segment.taper {
-    background: linear-gradient(135deg, #14b8a6, #0d9488);
+    --c: var(--phase-taper);
   }
   .phase-segment.recovery {
-    background: linear-gradient(135deg, #6b7280, #4b5563);
+    --c: var(--phase-recovery);
   }
   .phase-segment.rebuild {
-    background: linear-gradient(135deg, #f97316, #ea580c);
+    --c: var(--phase-rebuild);
   }
   .phase-segment.survival {
-    background: linear-gradient(135deg, #f59e0b, #d97706);
+    --c: var(--race);
   }
   .phase-segment.bank {
-    background: linear-gradient(135deg, #10b981, #059669);
+    --c: var(--bike);
   }
 
   .weeks-container {

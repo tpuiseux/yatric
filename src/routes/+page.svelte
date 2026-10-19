@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
   import { base } from "$app/paths";
+  import Logo from "$lib/components/Logo.svelte";
   import type { PageData } from "./$types";
 
   interface Props {
@@ -8,6 +9,46 @@
   }
 
   let { data }: Props = $props();
+
+  const DAY = 86_400_000;
+  const today = new Date(new Date().toISOString().slice(0, 10)).getTime();
+
+  function formatDate(iso: string): string {
+    return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  /** Where the athlete is in a plan: before it, in week n, or past race day. */
+  function progress(plan: PageData["plans"][number]) {
+    const race = Date.parse(`${plan.event_date}T00:00:00Z`);
+    const daysLeft = Math.round((race - today) / DAY);
+    const start = plan.start_date ? Date.parse(`${plan.start_date}T00:00:00Z`) : null;
+    const weeks = plan.total_weeks ?? 0;
+    if (daysLeft < 0)
+      return { label: "Done", detail: "Race day is behind you", ratio: 1, past: true };
+    if (start === null || !weeks) {
+      return { label: `${daysLeft} days`, detail: "to race day", ratio: 0, past: false };
+    }
+    const week = Math.floor((today - start) / (7 * DAY)) + 1;
+    if (week < 1) {
+      return {
+        label: `${daysLeft} days`,
+        detail: `to race day · starts ${formatDate(plan.start_date!)}`,
+        ratio: 0,
+        past: false,
+      };
+    }
+    return {
+      label: daysLeft === 0 ? "Race day" : `${daysLeft} days`,
+      detail: `to race day · week ${Math.min(week, weeks)} of ${weeks}`,
+      ratio: Math.min(1, (today - start) / (race - start || 1)),
+      past: false,
+    };
+  }
 
   let fileInput = $state<HTMLInputElement | null>(null);
   let importing = $state(false);
@@ -50,162 +91,254 @@
   <title>Yatric</title>
 </svelte:head>
 
-<main>
-  <header>
-    <h1>Your plans</h1>
-    <div class="header-actions">
-      <a class="create" href="{base}/plans/new">Create a plan</a>
-      <button onclick={handleImportClick} disabled={importing}>
-        {importing ? "Importing…" : "Import plan"}
-      </button>
-      <input
-        type="file"
-        accept=".json,application/json"
-        bind:this={fileInput}
-        onchange={handleFileSelect}
-        style="display: none"
-      />
-      <form method="POST" action="{base}/logout">
-        <button type="submit">Log out ({data.user?.email})</button>
-      </form>
-    </div>
-  </header>
+<div class="page">
+  <nav>
+    <Logo size={28} />
+    <form method="POST" action="{base}/logout">
+      <span class="who">{data.user?.email}</span>
+      <button class="btn btn-ghost" type="submit">Log out</button>
+    </form>
+  </nav>
 
-  {#if importStatus}
-    <p class="status" class:error={importStatus.isError}>{importStatus.message}</p>
-  {/if}
+  <main>
+    <header>
+      <h1>Your plans</h1>
+      <div class="header-actions">
+        <button class="btn" onclick={handleImportClick} disabled={importing}>
+          {importing ? "Importing…" : "Import plan"}
+        </button>
+        <a class="btn btn-primary" href="{base}/plans/new">Create a plan</a>
+        <input
+          type="file"
+          accept=".json,application/json"
+          bind:this={fileInput}
+          onchange={handleFileSelect}
+          style="display: none"
+        />
+      </div>
+    </header>
 
-  {#if data.plans.length === 0}
-    <div class="empty">
-      <p>No training plan yet.</p>
-      <a class="create big" href="{base}/plans/new">Create my plan with the coach</a>
-      <p class="hint">Or import a plan you already have as a JSON file.</p>
-    </div>
-  {:else}
-    <ul>
-      {#each data.plans as plan (plan.id)}
-        <li>
-          <a href="{base}/plans/{plan.id}">
-            <strong>{plan.event}</strong>
-            <span>{plan.event_date}</span>
-          </a>
-        </li>
-      {/each}
-    </ul>
-  {/if}
-</main>
+    {#if importStatus}
+      <p class="notice" class:error={importStatus.isError}>{importStatus.message}</p>
+    {/if}
+
+    {#if data.plans.length === 0}
+      <div class="empty">
+        <h2>Your first plan starts here</h2>
+        <p>
+          Tell the coach about your race and your running. It assesses where you stand, agrees a
+          goal with you, then writes your plan week by week.
+        </p>
+        <a class="btn btn-primary btn-lg" href="{base}/plans/new">Create my plan with the coach</a>
+        <p class="hint">Or import a plan you already have as a JSON file.</p>
+      </div>
+    {:else}
+      <ul>
+        {#each data.plans as plan (plan.id)}
+          {@const p = progress(plan)}
+          <li>
+            <a href="{base}/plans/{plan.id}" class:past={p.past}>
+              <div class="plan-main">
+                <strong>{plan.event}</strong>
+                <span class="date">{formatDate(plan.event_date)}</span>
+              </div>
+              <div class="plan-side">
+                <span class="countdown num">{p.label}</span>
+                <span class="detail">{p.detail}</span>
+              </div>
+              <div class="bar" aria-hidden="true">
+                <span style:width="{p.ratio * 100}%"></span>
+              </div>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </main>
+</div>
 
 <style>
+  .page {
+    min-height: 100vh;
+    background:
+      radial-gradient(70rem 26rem at 50% -14rem, var(--accent-glow), transparent 70%),
+      var(--bg-primary);
+  }
+
+  nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 1.25rem 1.5rem;
+  }
+
+  nav form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .who {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   main {
-    max-width: 640px;
-    margin: 3rem auto;
-    padding: 0 1.5rem;
-    font-family:
-      system-ui,
-      -apple-system,
-      sans-serif;
-    color: #fafafa;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
   }
 
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1.5rem;
     gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  h1 {
+    font-size: 1.9rem;
+    font-weight: 650;
   }
 
   .header-actions {
     display: flex;
-    align-items: center;
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
 
-  h1 {
-    font-size: 1.5rem;
-    margin: 0;
+  .notice {
+    margin-bottom: 1.25rem;
   }
 
-  button {
-    padding: 0.5rem 0.9rem;
-    border-radius: 8px;
-    border: 1px solid #232327;
-    background: #1c1c1f;
-    color: #fafafa;
-    cursor: pointer;
-    font-size: 0.85rem;
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 2.25rem 2rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--bg-secondary);
   }
 
-  button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+  .empty h2 {
+    font-size: 1.35rem;
+    font-weight: 650;
   }
 
-  .create {
-    padding: 0.5rem 0.9rem;
-    border-radius: 8px;
-    background: #eab308;
-    color: #0a0a0b;
-    font-weight: 600;
-    font-size: 0.85rem;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  .create.big {
-    display: inline-block;
-    padding: 0.75rem 1.2rem;
-    font-size: 0.95rem;
-    margin: 0.5rem 0 1rem;
+  .empty p {
+    max-width: 34rem;
+    color: var(--text-secondary);
   }
 
   .empty .hint {
-    color: #a1a1aa;
+    color: var(--text-muted);
     font-size: 0.85rem;
-  }
-
-  .status {
-    margin: 0 0 1.5rem;
-    padding: 0.6rem 0.9rem;
-    border-radius: 8px;
-    background: rgba(234, 179, 8, 0.12);
-    color: #eab308;
-    font-size: 0.85rem;
-  }
-
-  .status.error {
-    background: rgba(239, 68, 68, 0.1);
-    color: #f87171;
   }
 
   ul {
     list-style: none;
-    margin: 0;
-    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
   }
 
   li a {
-    display: flex;
-    justify-content: space-between;
-    padding: 1rem 1.25rem;
-    border: 1px solid #232327;
-    border-radius: 10px;
-    color: #fafafa;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.25rem 1.5rem;
+    padding: 1.25rem 1.4rem 1.5rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
     text-decoration: none;
-    background: #141416;
+    overflow: hidden;
+    transition:
+      border-color var(--transition-fast),
+      transform var(--transition-fast);
   }
 
-  li a span {
-    color: #a1a1aa;
+  li a:hover {
+    border-color: var(--border-medium);
+    transform: translateY(-1px);
+  }
+
+  li a.past {
+    opacity: 0.65;
+  }
+
+  .plan-main,
+  .plan-side {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .plan-side {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  strong {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .date,
+  .detail {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+
+  .countdown {
+    font-size: 1.35rem;
+    font-weight: 650;
+    color: var(--accent);
+  }
+
+  .past .countdown {
+    color: var(--text-secondary);
+  }
+
+  .bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--bg-tertiary);
+  }
+
+  .bar span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
   }
 
   @media (max-width: 600px) {
+    nav {
+      padding: 1rem;
+    }
+
+    .who {
+      display: none;
+    }
+
     main {
-      margin: 1.5rem auto;
-      padding: 0 1rem;
+      padding: 1rem 1rem 3rem;
     }
 
     header {
@@ -213,33 +346,28 @@
       align-items: stretch;
     }
 
-    .header-actions {
-      flex-wrap: wrap;
+    h1 {
+      font-size: 1.6rem;
     }
 
-    .header-actions > button,
-    .header-actions > .create,
-    .header-actions form,
-    .header-actions form button {
+    .header-actions > * {
       flex: 1;
-    }
-
-    .header-actions form {
-      display: flex;
-      min-width: 0;
-    }
-
-    .header-actions button {
       min-height: 44px;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    }
+
+    .empty {
+      padding: 1.5rem 1.25rem;
     }
 
     li a {
-      gap: 1rem;
-      padding: 1.1rem 1.25rem;
+      grid-template-columns: 1fr;
+    }
+
+    .plan-side {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 0.4rem;
+      text-align: left;
     }
   }
 </style>

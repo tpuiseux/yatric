@@ -716,7 +716,7 @@
   }
 
   .analysis-note.error {
-    color: #ef4444;
+    color: var(--danger-strong);
   }
 
   .tiles {
@@ -740,7 +740,8 @@
   }
 
   .tile-value {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 1.05rem;
     color: var(--text-primary);
     white-space: nowrap;
@@ -784,7 +785,8 @@
   }
 
   .axis-label {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 10px;
     fill: var(--text-muted);
   }
@@ -817,7 +819,8 @@
   }
 
   .zone-label {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 9px;
     fill: var(--text-muted);
   }
@@ -874,7 +877,8 @@
   }
 
   .tooltip-value {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     color: var(--text-primary);
   }
 
@@ -934,7 +938,8 @@
 
   .zone-time,
   .zone-pct {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
     color: var(--text-secondary);
     text-align: right;
@@ -947,12 +952,13 @@
   .laps {
     width: 100%;
     border-collapse: collapse;
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
     font-size: 0.78rem;
   }
 
   .laps th {
-    font-family: "Outfit", sans-serif;
+    font-family: var(--font-display);
     font-weight: 500;
     font-size: 0.68rem;
     text-transform: uppercase;
