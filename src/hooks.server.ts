@@ -4,6 +4,8 @@ import { initDatabase } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
 import { validateSession } from "./auth/session.js";
 import { findUserById } from "./auth/users.js";
+import { resolveLocale } from "$lib/i18n/index.js";
+import { resolveTheme } from "$lib/preferences.js";
 
 export const SESSION_COOKIE = "session";
 
@@ -26,6 +28,9 @@ function ensureDb(): Promise<void> {
 // /signup answers 404 itself when SIGNUP_INVITE_CODE is unset (see
 // routes/signup/+page.server.ts), so listing it here opens nothing by default.
 const PUBLIC_ROUTES = new Set([`${base}/login`, `${base}/signup`]);
+// Open with or without a session: the language and theme switch, also
+// offered on the login page.
+const OPEN_ROUTES = new Set([`${base}/preferences`]);
 
 export const handle: Handle = async ({ event, resolve }) => {
   await ensureDb();
@@ -40,14 +45,26 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.user = null;
   }
 
+  event.locals.locale = resolveLocale(
+    event.cookies.get("lang"),
+    event.request.headers.get("accept-language")
+  );
+  event.locals.theme = resolveTheme(event.cookies.get("theme"));
+
   const isPublicRoute = PUBLIC_ROUTES.has(event.url.pathname);
 
-  if (!event.locals.user && !isPublicRoute) {
+  const isOpenRoute = OPEN_ROUTES.has(event.url.pathname);
+
+  if (!event.locals.user && !isPublicRoute && !isOpenRoute) {
     return new Response(null, { status: 302, headers: { location: `${base}/login` } });
   }
   if (event.locals.user && isPublicRoute) {
     return new Response(null, { status: 302, headers: { location: `${base}/` } });
   }
 
-  return resolve(event);
+  const { locale, theme } = event.locals;
+  return resolve(event, {
+    transformPageChunk: ({ html }) =>
+      html.replace('<html lang="en">', `<html lang="${locale}" data-theme="${theme}">`),
+  });
 };

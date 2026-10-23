@@ -8,20 +8,30 @@
     CoachProposal,
     WorkoutSnapshot,
   } from "../coach.js";
+  import type { GuardrailNote } from "../guardrails.js";
   import { renderMarkdown } from "../markdown.js";
-  import { formatDuration } from "../utils.js";
+  import { getI18n } from "../i18n/index.js";
 
+  /**
+   * The coach chat, docked beside the plan on a wide screen and over it on
+   * a smaller one: the conversation, the plan changes it proposes, and a box
+   * to write in.
+   */
   interface Props {
     planId: string;
     /** Opens the chat with this message ready to send (a new id each time). */
     request?: { id: number; text: string } | null;
+    open: boolean;
     /** After a proposal is applied or undone - the page reloads the plan. */
     onPlanChanged: () => Promise<void> | void;
   }
 
-  let { planId, request = null, onPlanChanged }: Props = $props();
+  let { planId, request = null, open = $bindable(), onPlanChanged }: Props = $props();
 
-  let open = $state(false);
+  const i18n = getI18n();
+  const m = $derived(i18n.m);
+  const fmt = $derived(i18n.fmt);
+
   let loaded = $state(false);
   let configured = $state(true);
   let messages = $state<CoachChatMessage[]>([]);
@@ -47,7 +57,7 @@
     errorText = null;
     try {
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`Couldn't load the conversation (${res.status})`);
+      if (!res.ok) throw new Error(m.common.requestFailed(res.status));
       const data = await res.json();
       configured = data.configured;
       messages = data.messages;
@@ -55,7 +65,7 @@
       loaded = true;
       await scrollToEnd();
     } catch (err) {
-      errorText = err instanceof Error ? err.message : "Couldn't load the conversation.";
+      errorText = err instanceof Error ? err.message : m.common.somethingWrong;
     }
   }
 
@@ -64,18 +74,14 @@
     if (!request || request.id === lastRequest) return;
     lastRequest = request.id;
     draft = request.text;
-    if (!open) toggle();
-    else tick().then(() => inputEl?.focus());
+    open = true;
+    tick().then(() => inputEl?.focus());
   });
 
-  async function toggle() {
-    open = !open;
-    if (open) {
-      if (!loaded) await load();
-      await tick();
-      inputEl?.focus();
-    }
-  }
+  // Load the conversation the first time the panel opens.
+  $effect(() => {
+    if (open && !loaded) load().then(() => inputEl?.focus());
+  });
 
   async function send() {
     const text = draft.trim();
@@ -83,7 +89,7 @@
     draft = "";
     errorText = null;
     sending = true;
-    status = "Thinking…";
+    status = m.coach.thinking;
     messages.push({ id: -Date.now(), role: "user", text, activity: [], proposalIds: [] });
     const reply: CoachChatMessage = {
       id: -Date.now() - 1,
@@ -105,7 +111,7 @@
       });
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.message ?? `The coach couldn't answer (${res.status}).`);
+        throw new Error(body?.message ?? m.coach.couldNotAnswer);
       }
 
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -122,7 +128,7 @@
         await scrollToEnd();
       }
     } catch (err) {
-      errorText = err instanceof Error ? err.message : "The coach couldn't answer.";
+      errorText = err instanceof Error ? err.message : m.coach.couldNotAnswer;
     } finally {
       sending = false;
       status = null;
@@ -142,7 +148,7 @@
         break;
       case "activity":
         reply.activity.push(event.label);
-        status = `${event.label}…`;
+        status = `${m.coach.working[event.label] ?? event.label}…`;
         break;
       case "proposal":
         proposals[event.proposal.id] = event.proposal;
@@ -167,11 +173,11 @@
         body: JSON.stringify({ action }),
       });
       const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.message ?? `Request failed (${res.status})`);
+      if (!res.ok) throw new Error(body?.message ?? m.common.requestFailed(res.status));
       proposals[proposal.id] = body.proposal;
       if (action !== "reject") await onPlanChanged();
     } catch (err) {
-      errorText = err instanceof Error ? err.message : "Something went wrong.";
+      errorText = err instanceof Error ? err.message : m.common.somethingWrong;
     } finally {
       busyProposal = null;
     }
@@ -194,178 +200,192 @@
     }
   }
 
-  function shortDate(date: string): string {
-    return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      timeZone: "UTC",
-    });
+  function looked(tools: string[]): string {
+    const what = [...new Set(tools)]
+      .filter((t) => t !== "propose_plan_changes" && t !== "save_week_review")
+      .map((t) => m.coach.tools[t] ?? t);
+    return what.length ? m.coach.looked(what.join(", ")) : "";
   }
 
-  function describe(w: WorkoutSnapshot): string {
-    const length = w.durationMinutes ? ` · ${formatDuration(w.durationMinutes)}` : "";
-    return `${w.name}${length}`;
+  function warning(w: GuardrailNote): string {
+    const p = w.params as Record<string, string & number>;
+    switch (w.rule) {
+      case "volume_jump":
+        return m.guardrails.volume_jump({
+          week: p.week,
+          hours: fmt.duration(p.minutes),
+          pct: p.pct,
+          biggest: fmt.duration(p.biggest),
+          limit: p.limit,
+        });
+      case "monotony":
+        return m.guardrails.monotony({
+          week: p.week,
+          value: fmt.number(p.value, 1),
+          limit: p.limit,
+        });
+      case "long_run_share":
+        return m.guardrails.long_run_share({
+          week: p.week,
+          name: p.name,
+          pct: p.pct,
+          limit: p.limit,
+        });
+      case "consecutive_quality":
+        return m.guardrails.consecutive_quality({
+          a: p.a,
+          b: p.b,
+          dates:
+            p.dateA === p.dateB
+              ? m.guardrails.sameDay(fmt.date(p.dateA, "short"))
+              : m.guardrails.twoDays(fmt.date(p.dateA, "short"), fmt.date(p.dateB, "short")),
+        });
+      case "quality_after_red":
+        return m.guardrails.quality_after_red({ name: p.name, date: fmt.date(p.date, "short") });
+    }
+    return w.text;
   }
 
-  const OP_LABELS: Record<ChangePreview["op"], string> = {
-    move: "Move",
-    edit: "Change",
-    add: "Add",
-    delete: "Remove",
-  };
-
-  const STATUS_LABELS: Record<CoachProposal["status"], string> = {
-    pending: "",
-    applied: "Applied",
-    rejected: "Rejected",
-    undone: "Undone",
-  };
-
-  const SUGGESTIONS = [
-    "How did my week go?",
-    "Am I on track for my goal time?",
-    "My hamstring is sore today - what should I change?",
-  ];
+  function when(w: WorkoutSnapshot): string {
+    return fmt.date(w.date, "long");
+  }
 </script>
 
 <svelte:window onkeydown={(e) => e.key === "Escape" && open && (open = false)} />
 
-{#if !open}
-  <button class="coach-fab" onclick={toggle} aria-label="Talk to the coach">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-    Coach
-  </button>
-{/if}
-
 {#if open}
-  <aside class="coach-panel" aria-label="Coach">
+  <aside class="coach" aria-label={m.coach.title}>
     <header>
-      <h2>Coach</h2>
+      <h2 class="title-s">{m.coach.title}</h2>
       <div class="header-actions">
         {#if messages.length > 0}
-          <button class="link" onclick={newConversation} disabled={sending}>New conversation</button
+          <button class="btn btn-ghost btn-sm" onclick={newConversation} disabled={sending}
+            >{m.coach.newConversation}</button
           >
         {/if}
-        <button class="close" onclick={toggle} aria-label="Close">×</button>
+        <button
+          class="btn btn-ghost btn-icon btn-sm"
+          onclick={() => (open = false)}
+          aria-label={m.coach.collapse}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
       </div>
     </header>
 
-    <div class="messages" bind:this={listEl}>
+    <div class="thread" bind:this={listEl}>
       {#if !configured}
-        <p class="empty">
-          The coach isn't set up on this server yet: it needs an Anthropic API key (<code
-            >ANTHROPIC_API_KEY</code
-          >).
-        </p>
+        <p class="muted">{m.coach.notConfigured}</p>
       {:else if loaded && messages.length === 0}
-        <div class="empty">
-          <p>
-            Ask about your training, your week or the race. The coach can read your plan, your
-            Garmin sessions, your feedback and your recovery, and suggest changes to the plan -
-            nothing changes until you apply them.
-          </p>
+        <div class="intro">
+          <p class="muted">{m.coach.intro}</p>
           <div class="suggestions">
-            {#each SUGGESTIONS as s (s)}
-              <button onclick={() => ((draft = s), inputEl?.focus())}>{s}</button>
+            {#each m.coach.suggestions as s (s)}
+              <button class="btn btn-sm" onclick={() => ((draft = s), inputEl?.focus())}>{s}</button
+              >
             {/each}
           </div>
         </div>
       {/if}
 
-      {#each messages as m (m.id)}
-        <div class="message {m.role}">
-          {#if m.role === "assistant"}
-            {#if m.text}
-              <div class="bubble markdown">{@html renderMarkdown(m.text)}</div>
-            {/if}
-            {#each m.proposalIds as pid (pid)}
-              {@const p = proposals[pid]}
-              {#if p}
-                <div class="proposal" class:settled={p.status !== "pending"}>
-                  <div class="proposal-head">
-                    <span class="proposal-title">{p.summary}</span>
-                    {#if p.status !== "pending"}
-                      <span class="proposal-status">{STATUS_LABELS[p.status]}</span>
-                    {/if}
-                  </div>
-                  <ul>
-                    {#each p.changes as c, i (i)}
-                      <li>
-                        <span class="op {c.op}">{OP_LABELS[c.op]}</span>
-                        <div class="change">
-                          {#if c.op === "move" && c.before && c.after}
-                            <div>{describe(c.before)}</div>
-                            <div class="muted">
-                              {shortDate(c.before.date)} → {shortDate(c.after.date)}
+      {#each messages as msg (msg.id)}
+        {#if msg.role === "assistant"}
+          {#if msg.text}
+            <div class="msg coach-msg">
+              <span class="who">{m.coach.title}</span>
+              <div class="markdown">{@html renderMarkdown(msg.text)}</div>
+              {#if looked(msg.activity)}<span class="looked">{looked(msg.activity)}</span>{/if}
+            </div>
+          {/if}
+          {#each msg.proposalIds as pid (pid)}
+            {@const p = proposals[pid]}
+            {#if p}
+              <div class="proposal" class:settled={p.status !== "pending"}>
+                <div class="proposal-head">
+                  <span class="proposal-title">{p.summary}</span>
+                  {#if p.status !== "pending"}
+                    <span class="proposal-status" class:applied={p.status === "applied"}
+                      >{m.coach.status[p.status]}</span
+                    >
+                  {/if}
+                </div>
+                <ul class="changes">
+                  {#each p.changes as c, i (i)}
+                    <li class="change">
+                      <span class="op">{m.coach.ops[c.op]}</span>
+                      <div class="what">
+                        {#if c.op === "move" && c.before && c.after}
+                          <div>{c.before.name}</div>
+                          <div><s class="muted">{when(c.before)}</s> {when(c.after)}</div>
+                        {:else if c.op === "edit" && c.before && c.after}
+                          <div>
+                            {#if c.before.name !== c.after.name}<s class="muted">{c.before.name}</s>
+                            {/if}{c.after.name}, {when(c.after)}
+                          </div>
+                          {#if c.before.durationMinutes !== c.after.durationMinutes}
+                            <div class="num">
+                              <s class="muted">{fmt.duration(c.before.durationMinutes ?? 0)}</s>
+                              {fmt.duration(c.after.durationMinutes ?? 0)}
                             </div>
-                          {:else if c.op === "edit" && c.before && c.after}
-                            <div>
-                              {#if c.before.name !== c.after.name}
-                                <s>{c.before.name}</s> → {describe(c.after)}
-                              {:else}
-                                {describe(c.after)}
-                              {/if}
-                            </div>
-                            <div class="muted">
-                              {shortDate(c.after.date)}
-                              {#if c.before.durationMinutes !== c.after.durationMinutes}
-                                · {formatDuration(c.before.durationMinutes ?? 0)} → {formatDuration(
-                                  c.after.durationMinutes ?? 0
-                                )}
-                              {/if}
-                            </div>
-                          {:else if c.after}
-                            <div>{describe(c.after)}</div>
-                            <div class="muted">{shortDate(c.after.date)}</div>
-                          {:else if c.before}
-                            <div><s>{describe(c.before)}</s></div>
-                            <div class="muted">{shortDate(c.before.date)}</div>
                           {/if}
-                          {#if c.reason}<div class="reason">{c.reason}</div>{/if}
-                        </div>
-                      </li>
+                        {:else if c.after}
+                          <div>
+                            {c.after.name}{c.after.durationMinutes
+                              ? `, ${fmt.duration(c.after.durationMinutes)}`
+                              : ""}
+                          </div>
+                          <div class="muted">{when(c.after)}</div>
+                        {:else if c.before}
+                          <div><s>{c.before.name}</s></div>
+                          <div class="muted">{when(c.before)}</div>
+                        {/if}
+                        {#if c.reason}<div class="why">{c.reason}</div>{/if}
+                      </div>
+                    </li>
+                  {/each}
+                </ul>
+                {#if p.warnings?.length}
+                  <ul class="warnings" role="note">
+                    {#each p.warnings as w, i (i)}
+                      <li>{warning(w)}</li>
                     {/each}
                   </ul>
-                  {#if p.warnings?.length}
-                    <ul class="warnings" role="note">
-                      {#each p.warnings as w, i (i)}
-                        <li><span class="warn-icon">⚠</span> {w}</li>
-                      {/each}
-                    </ul>
-                  {/if}
+                {/if}
+                {#if p.status === "pending" || p.status === "applied"}
                   <div class="proposal-actions">
                     {#if p.status === "pending"}
                       <button
-                        class="primary"
+                        class="btn btn-primary btn-sm"
                         disabled={busyProposal === p.id}
-                        onclick={() => answer(p, "apply")}>Apply</button
+                        onclick={() => answer(p, "apply")}>{m.coach.apply}</button
                       >
-                      <button disabled={busyProposal === p.id} onclick={() => answer(p, "reject")}
-                        >Reject</button
+                      <button
+                        class="btn btn-ghost btn-sm"
+                        disabled={busyProposal === p.id}
+                        onclick={() => answer(p, "reject")}>{m.coach.reject}</button
                       >
-                    {:else if p.status === "applied"}
-                      <button disabled={busyProposal === p.id} onclick={() => answer(p, "undo")}
-                        >Undo</button
+                    {:else}
+                      <button
+                        class="btn btn-sm"
+                        disabled={busyProposal === p.id}
+                        onclick={() => answer(p, "undo")}>{m.coach.undo}</button
                       >
                     {/if}
                   </div>
-                </div>
-              {/if}
-            {/each}
-          {:else}
-            <div class="bubble">{m.text}</div>
-          {/if}
-        </div>
+                {/if}
+              </div>
+            {/if}
+          {/each}
+        {:else}
+          <div class="msg athlete-msg">{msg.text}</div>
+        {/if}
       {/each}
 
       {#if status}
-        <div class="status" role="status">{status}</div>
+        <div class="looked" role="status">{status}</div>
       {/if}
       {#if errorText}
-        <div class="error" role="alert">{errorText}</div>
+        <div class="notice error" role="alert">{errorText}</div>
       {/if}
     </div>
 
@@ -377,367 +397,218 @@
       }}
     >
       <textarea
+        class="input"
         bind:this={inputEl}
         bind:value={draft}
         onkeydown={onKeydown}
         rows="2"
-        placeholder="Message the coach…"
+        aria-label={m.coach.placeholder}
+        placeholder={m.coach.placeholder}
         disabled={!configured}
       ></textarea>
-      <button type="submit" class="primary" disabled={sending || !draft.trim() || !configured}>
-        Send
+      <button
+        type="submit"
+        class="btn btn-primary"
+        disabled={sending || !draft.trim() || !configured}
+      >
+        {m.coach.send}
       </button>
     </form>
   </aside>
 {/if}
 
 <style>
-  .coach-fab {
-    position: fixed;
-    right: 1rem;
-    bottom: 3.5rem;
-    z-index: 60;
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.65rem 1rem;
-    border-radius: 999px;
-    border: 1px solid var(--border-medium);
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 600;
-    font-size: 0.9rem;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  }
-
-  .coach-fab svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .coach-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    z-index: 120;
-    width: min(440px, 100vw);
-    height: 100dvh;
+  .coach {
+    position: sticky;
+    top: 57px;
     display: flex;
     flex-direction: column;
-    background: var(--bg-secondary);
-    border-left: 1px solid var(--border-subtle);
-    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.35);
+    height: calc(100vh - 57px);
+    border-left: 1px solid var(--line);
+    background: var(--paper);
   }
-
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-subtle);
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-4) var(--space-2) var(--space-6);
   }
-
-  h2 {
-    font-size: 1rem;
-    font-weight: 650;
-  }
-
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-1);
+  }
+  header svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
   }
 
-  .link {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-  }
-
-  .link:hover {
-    color: var(--text-primary);
-  }
-
-  .close {
-    width: 40px;
-    height: 40px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 1.5rem;
-  }
-
-  .messages {
+  .thread {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-6) var(--space-4);
   }
-
-  .empty {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    line-height: 1.5;
+  .intro {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    font-size: 14px;
   }
-
   .suggestions {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    margin-top: 0.9rem;
+    align-items: flex-start;
+    gap: var(--space-2);
   }
-
-  .suggestions button {
+  .suggestions .btn {
+    height: auto;
+    min-height: 32px;
+    padding: 6px var(--space-3);
+    white-space: normal;
     text-align: left;
-    padding: 0.55rem 0.75rem;
-    border-radius: 10px;
-    border: 1px solid var(--border-medium);
-    background: transparent;
-    color: var(--text-primary);
-    font-size: 0.82rem;
+    font-weight: 500;
   }
 
-  .suggestions button:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .message {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .message.user {
-    align-items: flex-end;
-  }
-
-  .bubble {
-    max-width: 92%;
-    padding: 0.6rem 0.8rem;
-    border-radius: 12px;
-    font-size: 0.88rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
+  .msg {
+    font-size: 15px;
+    line-height: 22px;
     overflow-wrap: anywhere;
   }
-
-  .user .bubble {
-    background: var(--bg-elevated);
-    border-bottom-right-radius: 4px;
+  .who {
+    display: block;
+    margin-bottom: var(--space-1);
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--signal);
   }
-
-  .assistant .bubble {
-    background: var(--bg-tertiary);
-    border-bottom-left-radius: 4px;
-    white-space: normal;
+  .athlete-msg {
+    align-self: flex-end;
+    max-width: 85%;
+    padding: 10px var(--space-3);
+    border-radius: var(--radius-m) var(--radius-m) var(--radius-s) var(--radius-m);
+    background: var(--sunk);
+    white-space: pre-wrap;
   }
-
-  .markdown :global(p) {
-    margin: 0 0 0.5rem;
-  }
-
-  .markdown :global(p:last-child),
-  .markdown :global(ul:last-child),
-  .markdown :global(ol:last-child) {
-    margin-bottom: 0;
-  }
-
-  .markdown :global(ul),
-  .markdown :global(ol) {
-    margin: 0 0 0.5rem;
-    padding-left: 1.2rem;
-  }
-
-  .markdown :global(li) {
-    margin-bottom: 0.2rem;
-  }
-
-  .markdown :global(code) {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.8rem;
+  .looked {
+    display: block;
+    margin-top: var(--space-2);
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--ink-muted);
   }
 
   .proposal {
-    border: 1px solid var(--accent);
-    border-radius: 12px;
-    padding: 0.75rem;
-    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-radius: var(--radius-m);
+    background: var(--sheet);
+    border: 1px solid var(--line);
   }
-
-  .proposal.settled {
-    border-color: var(--border-medium);
-  }
-
   .proposal-head {
     display: flex;
     justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    gap: var(--space-2);
   }
-
   .proposal-title {
-    font-weight: 600;
-    font-size: 0.88rem;
+    font-weight: 650;
   }
-
   .proposal-status {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
     white-space: nowrap;
   }
-
-  .proposal ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .proposal-status.applied {
+    color: var(--success);
+  }
+  .changes {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--space-3);
+    list-style: none;
   }
-
-  .proposal li {
-    display: flex;
-    gap: 0.6rem;
-    font-size: 0.82rem;
-  }
-
-  .op {
-    flex-shrink: 0;
-    width: 4.2rem;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-    padding-top: 0.1rem;
-  }
-
   .change {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: var(--space-3);
+    font-size: 14px;
+    line-height: 20px;
+  }
+  .op {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+  .what {
     min-width: 0;
   }
-
-  .muted {
-    color: var(--text-secondary);
-    font-size: 0.78rem;
+  .why {
+    font-size: 13px;
+    color: var(--ink-muted);
   }
-
-  .reason {
-    color: var(--text-muted);
-    font-size: 0.76rem;
-    margin-top: 0.15rem;
+  .warnings {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-s);
+    background: var(--warning-soft);
+    font-size: 13px;
+    line-height: 18px;
   }
-
-  .proposal ul.warnings {
-    margin-top: 0.6rem;
-    padding: 0.5rem 0.6rem;
-    gap: 0.3rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
-    background: var(--warning-bg);
-  }
-
-  .warnings li {
-    display: block;
-    font-size: 0.78rem;
-  }
-
-  .warn-icon {
-    color: var(--warning);
-  }
-
   .proposal-actions {
     display: flex;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-  }
-
-  .proposal-actions:empty {
-    display: none;
-  }
-
-  button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 600;
-  }
-
-  .proposal-actions button,
-  .composer button {
-    padding: 0.45rem 0.9rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-medium);
-    background: transparent;
-    color: var(--text-primary);
-    font-size: 0.82rem;
-  }
-
-  .proposal-actions button.primary,
-  .composer button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .status {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-  }
-
-  .error {
-    font-size: 0.82rem;
-    padding: 0.5rem 0.7rem;
-    border-radius: 8px;
-    background: var(--danger-bg);
-    color: var(--danger);
+    gap: var(--space-2);
   }
 
   .composer {
     display: flex;
-    gap: 0.5rem;
     align-items: flex-end;
-    padding: 0.75rem;
-    border-top: 1px solid var(--border-subtle);
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    border-top: 1px solid var(--line);
+  }
+  .composer textarea {
+    min-height: 44px;
+    max-height: 160px;
   }
 
-  textarea {
-    flex: 1;
-    resize: none;
-    max-height: 30vh;
-    padding: 0.55rem 0.7rem;
-    border-radius: 10px;
-    border: 1px solid var(--border-medium);
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font: inherit;
-    font-size: 0.88rem;
+  @media (max-width: 1200px) {
+    .coach {
+      position: fixed;
+      top: 57px;
+      right: 0;
+      bottom: 0;
+      z-index: 35;
+      width: min(var(--coach-width), 100vw);
+      height: auto;
+      box-shadow: var(--shadow-float);
+    }
   }
-
   @media (max-width: 800px) {
-    .coach-panel {
-      width: 100vw;
-      border-left: none;
+    .coach {
+      left: 0;
+      width: auto;
+      bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+      border-left: 0;
+      box-shadow: none;
     }
-
-    .coach-fab {
-      bottom: 1rem;
+    header {
+      padding-left: var(--space-4);
     }
-
-    textarea {
-      font-size: 16px; /* no zoom-on-focus on iOS */
-    }
-
-    .composer button,
-    .proposal-actions button {
-      min-height: 44px;
+    .thread {
+      padding: var(--space-2) var(--space-4) var(--space-4);
     }
   }
 </style>

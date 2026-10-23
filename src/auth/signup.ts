@@ -8,7 +8,26 @@ import { createUser, findUserByEmail, type User } from "./users.js";
  * opens registration by accident.
  */
 
-export class SignupError extends Error {}
+export type SignupErrorCode =
+  | "closed"
+  | "inviteCode"
+  | "email"
+  | "nameTooLong"
+  | "passwordTooShort"
+  | "passwordTooLong"
+  | "passwordMismatch"
+  | "exists";
+
+/** Why a sign-up was refused: a code for the form's own wording, and its figure. */
+export class SignupError extends Error {
+  constructor(
+    readonly code: SignupErrorCode,
+    message: string,
+    readonly n = 0
+  ) {
+    super(message);
+  }
+}
 
 export const MIN_PASSWORD_LENGTH = 8;
 // scrypt's cost grows with input size - no reason to hash a novel.
@@ -51,33 +70,45 @@ function inviteCodeMatches(provided: string, expected: string): boolean {
  * not which emails already have accounts.
  */
 export function registerUser(input: SignupInput, expectedCode = configuredInviteCode()): User {
-  if (!expectedCode) throw new SignupError("Sign-ups are closed.");
+  if (!expectedCode) throw new SignupError("closed", "Sign-ups are closed.");
   if (!inviteCodeMatches(input.inviteCode, expectedCode)) {
-    throw new SignupError("Invalid invite code.");
+    throw new SignupError("inviteCode", "Invalid invite code.");
   }
 
   const email = input.email.trim();
   if (email.length > MAX_EMAIL_LENGTH || !EMAIL.test(email)) {
-    throw new SignupError("Enter a valid email address.");
+    throw new SignupError("email", "Enter a valid email address.");
   }
 
   const name = input.name.trim();
   if (name.length > MAX_NAME_LENGTH) {
-    throw new SignupError(`Name must be at most ${MAX_NAME_LENGTH} characters.`);
+    throw new SignupError(
+      "nameTooLong",
+      `Name must be at most ${MAX_NAME_LENGTH} characters.`,
+      MAX_NAME_LENGTH
+    );
   }
 
   if (input.password.length < MIN_PASSWORD_LENGTH) {
-    throw new SignupError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    throw new SignupError(
+      "passwordTooShort",
+      `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+      MIN_PASSWORD_LENGTH
+    );
   }
   if (input.password.length > MAX_PASSWORD_LENGTH) {
-    throw new SignupError(`Password must be at most ${MAX_PASSWORD_LENGTH} characters.`);
+    throw new SignupError(
+      "passwordTooLong",
+      `Password must be at most ${MAX_PASSWORD_LENGTH} characters.`,
+      MAX_PASSWORD_LENGTH
+    );
   }
   if (input.password !== input.confirmPassword) {
-    throw new SignupError("Passwords don't match.");
+    throw new SignupError("passwordMismatch", "Passwords don't match.");
   }
 
   if (findUserByEmail(email)) {
-    throw new SignupError("An account with this email already exists. Log in instead.");
+    throw new SignupError("exists", "An account with this email already exists. Log in instead.");
   }
 
   return createUser(email, input.password, name || undefined);

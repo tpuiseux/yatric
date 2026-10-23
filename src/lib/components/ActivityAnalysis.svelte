@@ -2,7 +2,8 @@
   import { base } from "$app/paths";
   import type { HrZone, Settings } from "../settings.js";
   import { activitySport, type RecordedActivity } from "../trainingLog.js";
-  import { formatDistance } from "../utils.js";
+  import { getI18n } from "../i18n/index.js";
+  import { distance as localDistance } from "../format.js";
   import {
     aerobicDecoupling,
     downsampleIndices,
@@ -26,6 +27,15 @@
 
   let { activity, settings }: Props = $props();
 
+  const i18n = getI18n();
+  const m = $derived(i18n.m);
+  const fmt = $derived(i18n.fmt);
+  const formatDistance = (
+    meters: number,
+    s: "run" | "bike" | "swim" | "strength" | "brick" | "race" | "rest",
+    st: Settings
+  ) => localDistance(meters, s, st, fmt);
+
   let analysis = $state<ActivityAnalysis | null>(null);
   let loadError = $state<string | null>(null);
 
@@ -37,12 +47,12 @@
     fetch(`${base}/activities/${id}/details`, { signal: controller.signal })
       .then(async (res) => {
         const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.message ?? `Couldn't load the activity (${res.status})`);
+        if (!res.ok) throw new Error(data?.message ?? m.activity.couldNotLoad);
         analysis = data as ActivityAnalysis;
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
-        loadError = err instanceof Error ? err.message : "Couldn't load the activity.";
+        loadError = err instanceof Error ? err.message : m.activity.couldNotLoad;
       });
     return () => controller.abort();
   });
@@ -190,14 +200,14 @@
     if (!prepared || !analysis) return [];
     const out: Panel[] = [];
     const stats = analysis.stats;
-    const sportColor = `var(--${sport ?? "run"})`;
+    const sportColor = "var(--signal)";
 
     const speedDomain = domainOf(prepared.speed, true, isPaceDisplay(display) ? 20 : 2);
     if (speedDomain) {
       const pace = isPaceDisplay(display);
       out.push({
         key: "speed",
-        title: pace ? "Pace" : "Speed",
+        title: pace ? m.activity.pace : m.activity.speed,
         unit: speedUnit(display),
         color: sportColor,
         values: prepared.speed,
@@ -214,7 +224,7 @@
     if (hrDomain) {
       out.push({
         key: "heartrate",
-        title: "Heart rate",
+        title: m.activity.heartRate,
         unit: "bpm",
         color: "var(--hr)",
         values: prepared.heartrate,
@@ -231,9 +241,9 @@
     if (powerDomain) {
       out.push({
         key: "power",
-        title: "Power",
+        title: m.activity.power,
         unit: "W",
-        color: "var(--bike-dark)",
+        color: "var(--ink)",
         values: prepared.power,
         domain: powerDomain,
         inverted: false,
@@ -250,9 +260,9 @@
     if (altDomain && Math.max(...altValues) - Math.min(...altValues) >= 15) {
       out.push({
         key: "altitude",
-        title: "Elevation",
+        title: m.activity.elevation,
         unit: "m",
-        color: "var(--text-muted)",
+        color: "var(--ink-muted)",
         values: prepared.altitude,
         domain: altDomain,
         inverted: false,
@@ -376,7 +386,7 @@
         time !== null ? formatClock(time) : "",
       ]
         .filter(Boolean)
-        .join(" · "),
+        .join(", "),
       rows: panels.map((p) => ({
         title: p.title,
         color: p.color,
@@ -402,56 +412,59 @@
     const s = analysis.stats;
     const t: { label: string; value: string; sub?: string }[] = [];
     if (s.distanceMeters && sport)
-      t.push({ label: "Distance", value: formatDistance(s.distanceMeters, sport, settings) });
+      t.push({
+        label: m.activity.distance,
+        value: formatDistance(s.distanceMeters, sport, settings),
+      });
     if (s.movingSeconds)
       t.push({
-        label: "Moving time",
+        label: m.activity.movingTime,
         value: formatClock(s.movingSeconds),
         sub:
           s.elapsedSeconds && s.elapsedSeconds - s.movingSeconds >= 60
-            ? `${formatClock(s.elapsedSeconds)} elapsed`
+            ? m.activity.elapsed(formatClock(s.elapsedSeconds))
             : undefined,
       });
     if (s.averageSpeed && sport !== "strength")
       t.push({
-        label: isPaceDisplay(display) ? "Avg pace" : "Avg speed",
+        label: isPaceDisplay(display) ? m.activity.avgPace : m.activity.avgSpeed,
         value: formatSpeed(s.averageSpeed, display),
-        sub: s.maxSpeed ? `best ${formatSpeed(s.maxSpeed, display)}` : undefined,
+        sub: s.maxSpeed ? m.activity.best(formatSpeed(s.maxSpeed, display)) : undefined,
       });
     if (s.averageHeartrate)
       t.push({
-        label: "Avg HR",
+        label: m.activity.avgHr,
         value: `${Math.round(s.averageHeartrate)} bpm`,
-        sub: s.maxHeartrate ? `max ${Math.round(s.maxHeartrate)}` : undefined,
+        sub: s.maxHeartrate ? m.activity.max(Math.round(s.maxHeartrate)) : undefined,
       });
     if (s.elevationGain && s.elevationGain >= 1)
-      t.push({ label: "Elevation", value: `+${Math.round(s.elevationGain)} m` });
+      t.push({ label: m.activity.elevation, value: `+${Math.round(s.elevationGain)} m` });
     if (s.averageCadence)
       t.push({
-        label: "Cadence",
+        label: m.activity.cadence,
         value: `${Math.round(s.averageCadence)} ${sport === "bike" ? "rpm" : "spm"}`,
       });
     if (s.averagePower)
       t.push({
-        label: "Power",
+        label: m.activity.power,
         value: `${Math.round(s.averagePower)} W`,
-        sub: s.normalizedPower ? `NP ${Math.round(s.normalizedPower)} W` : undefined,
+        sub: s.normalizedPower ? m.activity.np(Math.round(s.normalizedPower)) : undefined,
       });
     if (s.aerobicEffect !== null)
       t.push({
-        label: "Training effect",
-        value: `${s.aerobicEffect.toFixed(1)} / ${(s.anaerobicEffect ?? 0).toFixed(1)}`,
-        sub: ["aerobic / anaerobic", trainingEffectText(s.trainingEffectLabel)]
+        label: m.activity.trainingEffect,
+        value: `${fmt.number(s.aerobicEffect, 1)} / ${fmt.number(s.anaerobicEffect ?? 0, 1)}`,
+        sub: [m.activity.aerobicAnaerobic, trainingEffectText(s.trainingEffectLabel)]
           .filter(Boolean)
-          .join(" · "),
+          .join(", "),
       });
     if (s.trainingLoad !== null)
-      t.push({ label: "Load", value: String(Math.round(s.trainingLoad)) });
+      t.push({ label: m.activity.load, value: String(Math.round(s.trainingLoad)) });
     if (decoupling !== null)
       t.push({
-        label: "HR drift",
-        value: `${decoupling >= 0 ? "+" : ""}${decoupling.toFixed(1)}%`,
-        sub: decoupling < 5 ? "steady (< 5%)" : "heart worked harder late on",
+        label: m.activity.drift,
+        value: `${decoupling >= 0 ? "+" : ""}${fmt.number(decoupling, 1)} %`,
+        sub: decoupling < 5 ? m.activity.driftSteady : m.activity.driftLate,
       });
     return t;
   });
@@ -478,7 +491,7 @@
   {#if loadError}
     <p class="analysis-note error">{loadError}</p>
   {:else if !analysis}
-    <p class="analysis-note">Loading the session's details…</p>
+    <p class="analysis-note">{m.activity.loading}</p>
   {:else}
     <div class="tiles">
       {#each tiles as tile (tile.label)}
@@ -491,7 +504,7 @@
     </div>
 
     {#if analysis.detailsError}
-      <p class="analysis-note">Curves and laps unavailable: {analysis.detailsError}</p>
+      <p class="analysis-note">{m.activity.unavailable(analysis.detailsError)}</p>
     {/if}
 
     {#if panels.length > 0 && prepared}
@@ -506,7 +519,7 @@
                 width={chartWidth}
                 height={PANEL_HEIGHT}
                 role="img"
-                aria-label="{panel.title} over the session"
+                aria-label={m.activity.over(panel.title)}
                 onpointermove={handlePointer}
                 onpointerdown={handlePointer}
                 onpointerleave={() => (hoverIndex = null)}
@@ -615,13 +628,13 @@
         {/if}
       </div>
       <p class="chart-note">
-        {isPaceDisplay(display) ? "Pace" : "Speed"} smoothed over ~30 s · dashed line = session average
+        {m.activity.smoothed(isPaceDisplay(display) ? m.activity.pace : m.activity.speed)}
       </p>
     {/if}
 
     {#if zoneSeconds && zoneTotal > 0}
       <div class="subsection">
-        <h5 class="subsection-title">Time in heart-rate zones</h5>
+        <h5 class="subsection-title">{m.activity.timeInZones}</h5>
         <div class="zones">
           {#each hrZones as zone, i (i)}
             {@const pct = (zoneSeconds[i] / zoneTotal) * 100}
@@ -642,27 +655,27 @@
           {/each}
         </div>
         <p class="chart-note">
-          Zones from the plan's settings ({sport === "bike" ? "bike" : "run"} HR zones)
+          {m.activity.zonesFrom((sport === "bike" ? m.sport.bike : m.sport.run).toLowerCase())}
         </p>
       </div>
     {/if}
 
     {#if laps.length > 1}
       <div class="subsection">
-        <h5 class="subsection-title">Laps</h5>
+        <h5 class="subsection-title">{m.activity.laps}</h5>
         <div class="laps-scroll">
           <table class="laps">
             <thead>
               <tr>
                 <th>#</th>
-                <th>Dist</th>
-                <th>Time</th>
-                <th>{isPaceDisplay(display) ? "Pace" : "Speed"}</th>
-                <th>HR</th>
-                <th>Max</th>
-                {#if showLapCadence}<th>Cad</th>{/if}
+                <th>{m.activity.lapDist}</th>
+                <th>{m.activity.lapTime}</th>
+                <th>{isPaceDisplay(display) ? m.activity.pace : m.activity.speed}</th>
+                <th>{m.activity.lapHr}</th>
+                <th>{m.activity.lapMax}</th>
+                {#if showLapCadence}<th>{m.activity.lapCad}</th>{/if}
                 {#if showLapPower}<th>W</th>{/if}
-                <th>Elev</th>
+                <th>{m.activity.lapElev}</th>
               </tr>
             </thead>
             <tbody>
@@ -712,45 +725,49 @@
 
   .analysis-note {
     font-size: 0.85rem;
-    color: var(--text-muted);
+    color: var(--ink-muted);
   }
 
   .analysis-note.error {
-    color: var(--danger-strong);
+    color: var(--danger);
   }
 
   .tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
-    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--space-4) var(--space-6);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
   }
 
   .tile {
-    background: var(--bg-tertiary);
-    border-radius: 10px;
-    padding: 0.55rem 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     min-width: 0;
   }
 
   .tile-label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--ink-muted);
   }
 
   .tile-value {
-    font-family: var(--font-display);
+    font-size: 20px;
+    line-height: 24px;
+    font-weight: 700;
+    font-variation-settings: "wdth" 80;
     font-variant-numeric: tabular-nums;
-    font-size: 1.05rem;
-    color: var(--text-primary);
+    color: var(--ink);
     white-space: nowrap;
   }
 
   .tile-sub {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    line-height: 1.3;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--ink-muted);
   }
 
   .charts {
@@ -765,13 +782,14 @@
   }
 
   .panel-title {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
     padding-left: 44px;
   }
 
   .panel-unit {
-    color: var(--text-muted);
+    color: var(--ink-muted);
   }
 
   svg {
@@ -780,15 +798,15 @@
   }
 
   .grid {
-    stroke: var(--border-subtle);
+    stroke: var(--line);
     stroke-width: 1;
   }
 
   .axis-label {
-    font-family: var(--font-display);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
     font-size: 10px;
-    fill: var(--text-muted);
+    fill: var(--ink-muted);
   }
 
   .line {
@@ -799,12 +817,12 @@
   }
 
   .area {
-    fill: var(--text-muted);
+    fill: var(--ink-muted);
     opacity: 0.25;
   }
 
   .average {
-    stroke: var(--text-secondary);
+    stroke: var(--ink-muted);
     stroke-width: 1;
     stroke-dasharray: 4 4;
   }
@@ -819,19 +837,19 @@
   }
 
   .zone-label {
-    font-family: var(--font-display);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
     font-size: 9px;
-    fill: var(--text-muted);
+    fill: var(--ink-muted);
   }
 
   .crosshair {
-    stroke: var(--text-secondary);
+    stroke: var(--ink-muted);
     stroke-width: 1;
   }
 
   .hover-dot {
-    stroke: var(--bg-secondary);
+    stroke: var(--sheet);
     stroke-width: 2;
   }
 
@@ -839,8 +857,8 @@
   .tooltip {
     position: absolute;
     transform: translateX(12px);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-medium);
+    background: var(--sunk);
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
     padding: 0.4rem 0.6rem;
     font-size: 0.75rem;
@@ -855,7 +873,7 @@
   }
 
   .tooltip-heading {
-    color: var(--text-secondary);
+    color: var(--ink-muted);
     margin-bottom: 0.15rem;
   }
 
@@ -872,27 +890,26 @@
   }
 
   .tooltip-name {
-    color: var(--text-muted);
+    color: var(--ink-muted);
     flex: 1;
   }
 
   .tooltip-value {
-    font-family: var(--font-display);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
-    color: var(--text-primary);
+    color: var(--ink);
   }
 
   .chart-note {
     font-size: 0.7rem;
-    color: var(--text-muted);
+    color: var(--ink-muted);
     margin-top: 0.25rem;
   }
 
   .subsection-title {
     font-size: 0.7rem;
-    text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted);
+    color: var(--ink-muted);
     font-weight: 500;
     margin-bottom: 0.5rem;
   }
@@ -912,19 +929,19 @@
   }
 
   .zone-name {
-    color: var(--text-primary);
+    color: var(--ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .zone-sub {
-    color: var(--text-muted);
+    color: var(--ink-muted);
   }
 
   .zone-bar-track {
     height: 10px;
-    background: var(--bg-tertiary);
+    background: var(--sunk);
     border-radius: 4px;
     overflow: hidden;
   }
@@ -938,10 +955,10 @@
 
   .zone-time,
   .zone-pct {
-    font-family: var(--font-display);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
     font-size: 0.75rem;
-    color: var(--text-secondary);
+    color: var(--ink-muted);
     text-align: right;
   }
 
@@ -952,28 +969,27 @@
   .laps {
     width: 100%;
     border-collapse: collapse;
-    font-family: var(--font-display);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
     font-size: 0.78rem;
   }
 
   .laps th {
-    font-family: var(--font-display);
+    font-family: var(--font-sans);
     font-weight: 500;
     font-size: 0.68rem;
-    text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-muted);
+    color: var(--ink-muted);
     text-align: right;
     padding: 0.3rem 0.4rem;
-    border-bottom: 1px solid var(--border-medium);
+    border-bottom: 1px solid var(--line-strong);
   }
 
   .laps td {
     text-align: right;
     padding: 0.3rem 0.4rem;
-    border-bottom: 1px solid var(--border-subtle);
-    color: var(--text-primary);
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
     white-space: nowrap;
   }
 
@@ -983,15 +999,15 @@
   }
 
   .laps .muted {
-    color: var(--text-muted);
+    color: var(--ink-muted);
   }
 
   .laps tr.rest td {
-    color: var(--text-muted);
+    color: var(--ink-muted);
   }
 
   .laps td.fastest {
-    color: var(--accent);
+    color: var(--signal);
     font-weight: 600;
   }
 </style>

@@ -5,7 +5,6 @@ import type { Settings } from "../../src/lib/settings.js";
 
 // Mock Settings object
 const mockSettings: Settings = {
-  theme: "dark",
   units: { swim: "meters", bike: "kilometers", run: "kilometers" },
   firstDayOfWeek: "monday",
   run: {

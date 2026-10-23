@@ -3,20 +3,16 @@
   import { base } from "$app/paths";
   import type { Workout, TrainingDay, Sport, WorkoutType } from "../../schema/training-plan.js";
   import type { Settings } from "../settings.js";
-  import {
-    formatActivitySummary,
-    formatDuration,
-    formatDistance,
-    formatDate,
-    getZoneInfo,
-  } from "../utils.js";
+  import { getZoneInfo } from "../utils.js";
   import {
     FEELINGS,
-    FEELING_LABELS,
     type Feeling,
     type RecordedActivity,
     type WorkoutFeedback,
   } from "../trainingLog.js";
+  import { getI18n } from "../i18n/index.js";
+  import { distance as formatDistance, activityParts } from "../format.js";
+  import { intensityOf, workoutProfile } from "../intensity.js";
   import { isGarminConnectSupported } from "../garminSports.js";
   import ActivityAnalysis from "./ActivityAnalysis.svelte";
   import {
@@ -59,6 +55,10 @@
     painNotes: string | null;
     notes: string | null;
   }
+
+  const i18n = getI18n();
+  const m = $derived(i18n.m);
+  const fmt = $derived(i18n.fmt);
 
   let {
     workout,
@@ -116,7 +116,7 @@
       });
       editingFeedback = false;
     } catch (err) {
-      fbError = err instanceof Error ? err.message : "Couldn't save.";
+      fbError = err instanceof Error ? err.message : m.drawer.couldNotSave;
     } finally {
       fbSaving = false;
     }
@@ -130,7 +130,7 @@
       await onDeleteFeedback(workout.id);
       editingFeedback = false;
     } catch (err) {
-      fbError = err instanceof Error ? err.message : "Couldn't remove.";
+      fbError = err instanceof Error ? err.message : m.drawer.couldNotRemove;
     } finally {
       fbSaving = false;
     }
@@ -189,7 +189,7 @@
   }
 
   function handleBackdropClick(e: MouseEvent) {
-    if ((e.target as HTMLElement).classList.contains("modal-overlay")) {
+    if ((e.target as HTMLElement).classList.contains("overlay")) {
       onClose();
     }
   }
@@ -240,14 +240,14 @@
   async function handleExport(format: ExportFormat) {
     if (!workout) return;
     showExportMenu = false;
-    exportStatus = { message: "Exporting...", isError: false };
+    exportStatus = { message: m.drawer.exporting, isError: false };
 
     const result = await exportWorkout(workout, format, settings);
 
     if (result.success) {
-      exportStatus = { message: `Downloaded ${result.filename}`, isError: false };
+      exportStatus = { message: m.drawer.downloaded(result.filename ?? ""), isError: false };
     } else {
-      exportStatus = { message: result.error || "Export failed", isError: true };
+      exportStatus = { message: result.error || m.drawer.exportFailed, isError: true };
     }
 
     setTimeout(() => {
@@ -263,7 +263,7 @@
   async function handleSendToGarmin() {
     if (!workout || garminSending) return;
     garminSending = true;
-    exportStatus = { message: "Sending to Garmin...", isError: false };
+    exportStatus = { message: m.drawer.sending, isError: false };
 
     try {
       const res = await fetch(`${base}/plans/${planId}/workouts/${workout.id}/garmin`, {
@@ -272,11 +272,11 @@
         body: JSON.stringify({ date: day.date }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.message ?? `Envoi echoue (${res.status})`);
-      exportStatus = { message: "Sent to Garmin Connect.", isError: false };
+      if (!res.ok) throw new Error(data?.message ?? m.drawer.sendFailed);
+      exportStatus = { message: m.drawer.sent, isError: false };
     } catch (err) {
       exportStatus = {
-        message: err instanceof Error ? err.message : "Envoi Garmin echoue.",
+        message: err instanceof Error ? err.message : m.drawer.sendFailed,
         isError: true,
       };
     } finally {
@@ -303,1223 +303,703 @@
         completed: false,
       } as Workout)
   );
+
+  const intensity = $derived(intensityOf(displayWorkout));
+  const kindLabel = $derived(
+    displayWorkout.sport === "run"
+      ? m.intensity[intensity]
+      : (m.sport[displayWorkout.sport] ?? displayWorkout.sport)
+  );
+  const profile = $derived(workoutProfile(displayWorkout.structure));
+  const profileMinutes = $derived(Math.round(profile.reduce((s, p) => s + p.seconds, 0) / 60));
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 <div
-  class="modal-overlay active"
+  class="overlay"
   onclick={handleBackdropClick}
   onkeydown={handleKeydown}
   role="dialog"
   aria-modal="true"
+  aria-labelledby="drawer-title"
   tabindex="-1"
 >
-  <div class="modal" class:wide={currentMode === "view" && recordedActivities.length > 0}>
-    <div class="modal-header">
-      {#if currentMode === "view"}
-        <div>
-          <div class="modal-sport-badge {displayWorkout.sport}">
-            {displayWorkout.sport.toUpperCase()}
-          </div>
-          <h2 class="modal-title">{displayWorkout.name}</h2>
-          <div class="modal-date">{formatDate(day.date)}</div>
-        </div>
-      {:else}
-        <div>
-          <h2 class="modal-title">{currentMode === "create" ? "New Workout" : "Edit Workout"}</h2>
-          <div class="modal-date">{formatDate(day.date)}</div>
-        </div>
-      {/if}
-      <button class="modal-close" onclick={onClose}>×</button>
-    </div>
+  <div class="drawer">
+    <header>
+      <div class="titles">
+        {#if currentMode === "view"}
+          <span class="small muted first-cap"
+            >{m.drawer.meta(fmt.date(day.date, "long"), kindLabel)}</span
+          >
+          <h2 class="title-m" id="drawer-title">{displayWorkout.name}</h2>
+        {:else}
+          <span class="small muted first-cap">{fmt.date(day.date, "long")}</span>
+          <h2 class="title-m" id="drawer-title">
+            {currentMode === "create" ? m.drawer.newWorkout : m.drawer.editWorkout}
+          </h2>
+        {/if}
+      </div>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick={onClose} aria-label={m.common.close}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+    </header>
 
-    <div class="modal-body">
+    <div class="body">
       {#if currentMode === "view"}
-        <div class="modal-stats">
-          {#if displayWorkout.durationMinutes}
-            <div class="modal-stat">
-              <div class="modal-stat-value">{formatDuration(displayWorkout.durationMinutes)}</div>
-              <div class="modal-stat-label">Duration</div>
-            </div>
-          {/if}
-          {#if displayWorkout.distanceMeters}
-            <div class="modal-stat">
-              <div class="modal-stat-value">
-                {formatDistance(displayWorkout.distanceMeters, displayWorkout.sport, settings)}
+        {#if displayWorkout.durationMinutes || displayWorkout.distanceMeters || displayWorkout.primaryZone}
+          <div class="figures">
+            {#if displayWorkout.durationMinutes}
+              <div class="figure">
+                <span class="figure-m">{fmt.duration(displayWorkout.durationMinutes)}</span>
+                <span class="small muted">{m.drawer.duration}</span>
               </div>
-              <div class="modal-stat-label">Distance</div>
-            </div>
-          {/if}
-          {#if displayWorkout.primaryZone}
-            <div class="modal-stat zone">
-              <div class="modal-stat-value">
-                {getZoneInfo(displayWorkout.sport, displayWorkout.primaryZone, settings)}
+            {/if}
+            {#if displayWorkout.distanceMeters}
+              <div class="figure">
+                <span class="figure-m"
+                  >{formatDistance(
+                    displayWorkout.distanceMeters,
+                    displayWorkout.sport,
+                    settings,
+                    fmt
+                  )}</span
+                >
+                <span class="small muted">{m.drawer.distance}</span>
               </div>
-              <div class="modal-stat-label">Target Zone</div>
+            {/if}
+            {#if displayWorkout.primaryZone}
+              <div class="figure zone">
+                <span class="zone-value"
+                  >{getZoneInfo(displayWorkout.sport, displayWorkout.primaryZone, settings)}</span
+                >
+                <span class="small muted">{m.drawer.zone}</span>
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        {#if profile.length > 1}
+          <div>
+            <div class="profile" role="img" aria-label={m.drawer.profile(profileMinutes)}>
+              {#each profile as step, i (i)}
+                <span class="step {step.zone}" style:flex-grow={step.seconds}></span>
+              {/each}
             </div>
-          {/if}
-        </div>
+            <div class="profile-legend num">
+              <span>0</span><span>{Math.round(profileMinutes / 2)} min</span><span
+                >{profileMinutes} min</span
+              >
+            </div>
+          </div>
+        {/if}
 
         {#if displayWorkout.description}
-          <div class="modal-section">
-            <h4 class="modal-section-title">Description</h4>
-            <p class="modal-description">{displayWorkout.description}</p>
-          </div>
+          <p class="description">{displayWorkout.description}</p>
         {/if}
 
         {#if displayWorkout.humanReadable}
-          <div class="modal-section">
-            <h4 class="modal-section-title">Workout Structure</h4>
-            <pre class="workout-structure">{displayWorkout.humanReadable.replace(
-                /\\n/g,
-                "\n"
-              )}</pre>
-          </div>
+          <section>
+            <h3 class="title-s">{m.drawer.steps}</h3>
+            <p class="steps">{displayWorkout.humanReadable.replace(/\\n/g, "\n")}</p>
+          </section>
         {/if}
 
         {#if recordedActivities.length > 0}
-          <div class="modal-section">
-            <h4 class="modal-section-title">Recorded on Garmin</h4>
+          <section>
+            <h3 class="title-s">{m.drawer.recorded}</h3>
             {#each recordedActivities as activity (activity.id)}
-              <div class="recorded-row">
-                <span class="recorded-row-name">{activity.name ?? activity.sportType}</span>
-                <span class="recorded-row-summary">{formatActivitySummary(activity, settings)}</span
-                >
+              {@const p = activityParts(activity, settings, fmt)}
+              <div class="recorded">
+                <span>{activity.name ?? activity.sportType}</span>
+                <span class="muted num">{m.session.summary(p.distance, p.time, p.heartrate)}</span>
               </div>
               <ActivityAnalysis {activity} {settings} />
             {/each}
-          </div>
+          </section>
         {/if}
 
         {#if workout}
-          <div class="modal-section feedback-section">
-            <h4 class="modal-section-title">How did it go?</h4>
+          <section class="feedback">
+            <h3 class="title-s">{m.drawer.howDidItGo}</h3>
 
             {#if editingFeedback}
-              <div class="fb-field">
-                <span class="fb-label">Effort (RPE)</span>
-                <div class="rpe-scale" role="radiogroup" aria-label="Perceived effort, 1 to 10">
+              <div class="field">
+                <span>{m.drawer.effort}</span>
+                <div class="rpe" role="radiogroup" aria-label={m.drawer.effortScale}>
                   {#each [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as value (value)}
                     <button
                       type="button"
-                      class="rpe-btn"
-                      class:selected={fbRpe === value}
+                      class="chip"
                       role="radio"
                       aria-checked={fbRpe === value}
+                      class:on={fbRpe === value}
                       onclick={() => (fbRpe = fbRpe === value ? null : value)}>{value}</button
                     >
                   {/each}
                 </div>
-                <div class="rpe-hint"><span>Very easy</span><span>All-out</span></div>
+                <div class="rpe-hint field-hint">
+                  <span>{m.drawer.veryEasy}</span><span>{m.drawer.allOut}</span>
+                </div>
               </div>
 
-              <div class="fb-field">
-                <span class="fb-label">How did you feel?</span>
-                <div class="feeling-chips">
+              <div class="field">
+                <span>{m.drawer.feeling}</span>
+                <div class="chips">
                   {#each FEELINGS as value (value)}
                     <button
                       type="button"
-                      class="feeling-chip"
-                      class:selected={fbFeeling === value}
+                      class="chip"
                       aria-pressed={fbFeeling === value}
                       onclick={() => (fbFeeling = fbFeeling === value ? null : value)}
                     >
-                      {FEELING_LABELS[value]}
+                      {m.drawer.feelings[value]}
                     </button>
                   {/each}
                 </div>
               </div>
 
-              <label class="fb-pain">
+              <label class="check">
                 <input type="checkbox" bind:checked={fbPain} />
-                Pain or niggle
+                {m.drawer.pain}
               </label>
               {#if fbPain}
                 <input
                   type="text"
-                  class="form-input"
+                  class="input"
                   maxlength="500"
-                  placeholder="Where, and how bad? e.g. left calf, mild"
+                  aria-label={m.drawer.pain}
+                  placeholder={m.drawer.painPlaceholder}
                   bind:value={fbPainNotes}
                 />
               {/if}
 
               <textarea
-                class="form-textarea"
+                class="input"
                 rows="3"
                 maxlength="2000"
-                placeholder="Notes - sleep, weather, legs, anything worth knowing"
+                aria-label={m.drawer.howDidItGo}
+                placeholder={m.drawer.notesPlaceholder}
                 bind:value={fbNotes}
               ></textarea>
 
               {#if fbError}
-                <p class="fb-error">{fbError}</p>
+                <p class="notice error">{fbError}</p>
               {/if}
 
-              <div class="fb-actions">
-                {#if feedback}
-                  <button class="fb-remove" onclick={removeFeedback} disabled={fbSaving}>
-                    Remove
-                  </button>
-                {/if}
-                <button class="cancel-btn" onclick={() => (editingFeedback = false)}>Cancel</button>
+              <div class="row">
                 <button
-                  class="save-btn"
+                  class="btn btn-primary"
                   onclick={saveFeedback}
                   disabled={fbSaving || feedbackIsEmpty}
                 >
-                  {fbSaving ? "Saving…" : "Save"}
+                  {fbSaving ? m.common.saving : m.common.save}
                 </button>
+                <button class="btn btn-ghost" onclick={() => (editingFeedback = false)}
+                  >{m.common.cancel}</button
+                >
+                {#if feedback}
+                  <button
+                    class="btn btn-ghost btn-danger"
+                    onclick={removeFeedback}
+                    disabled={fbSaving}
+                  >
+                    {m.common.remove}
+                  </button>
+                {/if}
               </div>
               {#if !displayWorkout.completed}
-                <p class="fb-hint">Saving also marks this workout as done.</p>
+                <p class="small muted">{m.drawer.saveAlsoMarks}</p>
               {/if}
             {:else if feedback}
-              <div class="fb-summary">
+              <div class="chips">
                 {#if feedback.rpe}
-                  <span class="fb-pill">RPE {feedback.rpe}/10</span>
+                  <span class="pill">{m.week.rpe(String(feedback.rpe))}</span>
                 {/if}
                 {#if feedback.feeling}
-                  <span class="fb-pill">{FEELING_LABELS[feedback.feeling]}</span>
+                  <span class="pill">{m.drawer.feelings[feedback.feeling]}</span>
                 {/if}
                 {#if feedback.pain}
-                  <span class="fb-pill pain"
-                    >Pain{feedback.painNotes ? `: ${feedback.painNotes}` : ""}</span
-                  >
+                  <span class="pill pain">{m.drawer.painPill(feedback.painNotes ?? null)}</span>
                 {/if}
               </div>
               {#if feedback.notes}
-                <p class="modal-description fb-notes">{feedback.notes}</p>
+                <p class="description">{feedback.notes}</p>
               {/if}
-              <button class="fb-edit" onclick={startFeedbackEdit}>Edit</button>
+              <div>
+                <button class="btn btn-sm" onclick={startFeedbackEdit}>{m.common.edit}</button>
+              </div>
             {:else}
-              <button class="fb-start" onclick={startFeedbackEdit}>+ Log how it went</button>
+              <div>
+                <button class="btn btn-sm" onclick={startFeedbackEdit}
+                  >{m.drawer.logHowItWent}</button
+                >
+              </div>
             {/if}
-          </div>
+          </section>
         {/if}
       {:else}
-        <div class="form-grid">
-          <div class="form-row">
-            <label class="form-label" for="edit-sport">Sport</label>
-            <select id="edit-sport" class="form-select" bind:value={editSport}>
-              {#each sports as s (s)}
-                <option value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-              {/each}
-            </select>
+        <div class="form">
+          <div class="pair">
+            <label class="field" for="edit-sport">
+              {m.drawer.sport}
+              <select id="edit-sport" class="input" bind:value={editSport}>
+                {#each sports as s (s)}
+                  <option value={s}>{m.sport[s] ?? s}</option>
+                {/each}
+              </select>
+            </label>
+            <label class="field" for="edit-type">
+              {m.drawer.type}
+              <select id="edit-type" class="input" bind:value={editType}>
+                {#each workoutTypes as t (t)}
+                  <option value={t}>{m.workoutType[t] ?? t}</option>
+                {/each}
+              </select>
+            </label>
           </div>
-
-          <div class="form-row">
-            <label class="form-label" for="edit-type">Type</label>
-            <select id="edit-type" class="form-select" bind:value={editType}>
-              {#each workoutTypes as t (t)}
-                <option value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row full">
-          <label class="form-label" for="edit-name">Name</label>
-          <input
-            id="edit-name"
-            type="text"
-            class="form-input"
-            bind:value={editName}
-            placeholder="Easy Run"
-          />
-        </div>
-
-        <div class="form-row full">
-          <label class="form-label" for="edit-description">Description</label>
-          <textarea
-            id="edit-description"
-            class="form-textarea"
-            bind:value={editDescription}
-            placeholder="Conversational pace, focus on form"
-            rows="2"
-          ></textarea>
-        </div>
-
-        <div class="form-grid">
-          <div class="form-row">
-            <label class="form-label" for="edit-duration">Duration (minutes)</label>
+          <label class="field" for="edit-name">
+            {m.drawer.name}
             <input
-              id="edit-duration"
-              type="number"
-              class="form-input"
-              bind:value={editDuration}
-              placeholder="60"
+              id="edit-name"
+              type="text"
+              class="input"
+              bind:value={editName}
+              placeholder={m.drawer.namePlaceholder}
             />
+          </label>
+          <label class="field" for="edit-description">
+            {m.drawer.description}
+            <textarea
+              id="edit-description"
+              class="input"
+              bind:value={editDescription}
+              placeholder={m.drawer.descriptionPlaceholder}
+              rows="2"
+            ></textarea>
+          </label>
+          <div class="pair">
+            <label class="field" for="edit-duration">
+              {m.drawer.durationMinutes}
+              <input
+                id="edit-duration"
+                type="number"
+                class="input"
+                bind:value={editDuration}
+                placeholder="60"
+              />
+            </label>
+            <label class="field" for="edit-distance">
+              {m.drawer.distanceMeters}
+              <input
+                id="edit-distance"
+                type="number"
+                class="input"
+                bind:value={editDistance}
+                placeholder="10000"
+              />
+            </label>
           </div>
-
-          <div class="form-row">
-            <label class="form-label" for="edit-distance">Distance (meters)</label>
+          <label class="field" for="edit-zone">
+            {m.drawer.zone}
             <input
-              id="edit-distance"
-              type="number"
-              class="form-input"
-              bind:value={editDistance}
-              placeholder="10000"
+              id="edit-zone"
+              type="text"
+              class="input"
+              bind:value={editZone}
+              placeholder={m.drawer.zonePlaceholder}
             />
-          </div>
-        </div>
-
-        <div class="form-row full">
-          <label class="form-label" for="edit-zone">Target Zone</label>
-          <input
-            id="edit-zone"
-            type="text"
-            class="form-input"
-            bind:value={editZone}
-            placeholder="Zone 2"
-          />
-        </div>
-
-        <div class="form-row full">
-          <label class="form-label" for="edit-structure">Workout Structure</label>
-          <textarea
-            id="edit-structure"
-            class="form-textarea mono"
-            bind:value={editStructure}
-            placeholder="Warm-up: 10min easy&#10;Main: 4x1km @ threshold&#10;Cool-down: 10min easy"
-            rows="5"
-          ></textarea>
+          </label>
+          <label class="field" for="edit-structure">
+            {m.drawer.structure}
+            <textarea
+              id="edit-structure"
+              class="input"
+              bind:value={editStructure}
+              placeholder={m.drawer.structurePlaceholder}
+              rows="5"
+            ></textarea>
+          </label>
         </div>
       {/if}
     </div>
 
     {#if currentMode === "view" && showMovePanel}
-      <div class="move-panel">
-        <label class="form-label" for="move-date">Move to</label>
-        <input
-          id="move-date"
-          type="date"
-          class="form-input"
-          min={planDateRange.min}
-          max={planDateRange.max}
-          bind:value={moveDate}
-        />
+      <div class="move">
+        <label class="field" for="move-date">
+          {m.drawer.moveTo}
+          <input
+            id="move-date"
+            type="date"
+            class="input"
+            min={planDateRange.min}
+            max={planDateRange.max}
+            bind:value={moveDate}
+          />
+        </label>
         <button
-          class="save-btn"
+          class="btn btn-primary"
           disabled={!moveDate || moveDate === day.date}
           onclick={() => onMove(displayWorkout.id, moveDate)}
         >
-          Move
+          {m.drawer.move}
         </button>
       </div>
     {/if}
 
-    <div class="modal-footer">
-      {#if currentMode === "view"}
-        <div class="footer-left">
-          <button class="icon-btn edit" onclick={startEdit} title="Edit">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-          </button>
-          <button
-            class="icon-btn move"
-            class:active={showMovePanel}
-            onclick={() => (showMovePanel = !showMovePanel)}
-            title="Move to another day"
+    {#if showDeleteConfirm}
+      <div class="confirm notice warn" role="alertdialog" aria-label={m.drawer.deleteConfirm}>
+        <span>{m.drawer.deleteConfirm}</span>
+        <div class="row">
+          <button class="btn btn-sm btn-danger" onclick={handleDelete}>{m.common.delete}</button>
+          <button class="btn btn-ghost btn-sm" onclick={() => (showDeleteConfirm = false)}
+            >{m.common.cancel}</button
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <path d="M16 2v4M8 2v4M3 10h18M10 16h6M13 13l3 3-3 3" />
-            </svg>
-          </button>
-          <button class="icon-btn delete" onclick={() => (showDeleteConfirm = true)} title="Delete">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path
-                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-              />
-            </svg>
+        </div>
+      </div>
+    {/if}
+
+    <footer>
+      {#if currentMode === "view"}
+        {#if exportStatus}
+          <p class="status small" class:error={exportStatus.isError} role="status">
+            {exportStatus.message}
+          </p>
+        {/if}
+        <div class="row wrap">
+          <button
+            class="btn"
+            class:btn-primary={!displayWorkout.completed}
+            onclick={() => onToggleComplete(displayWorkout.id)}
+          >
+            {displayWorkout.completed ? m.drawer.markUndone : m.drawer.markDone}
           </button>
           {#if workout && isGarminConnectSupported(displayWorkout.sport)}
-            <button
-              class="icon-btn garmin"
-              onclick={handleSendToGarmin}
-              disabled={garminSending}
-              title="Send to Garmin"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2v20M2 12h20" />
-                <circle cx="12" cy="12" r="9" />
-              </svg>
+            <button class="btn" onclick={handleSendToGarmin} disabled={garminSending}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"
+                ><circle cx="12" cy="12" r="6" /><path
+                  d="M12 10v2l1 1M16 7.5 15.4 3.7A2 2 0 0 0 13.4 2h-2.8a2 2 0 0 0-2 1.7L8 7.5M8 16.5l.6 3.8a2 2 0 0 0 2 1.7h2.8a2 2 0 0 0 2-1.7l.6-3.8"
+                /></svg
+              >
+              {m.drawer.sendToWatch}
             </button>
           {/if}
+        </div>
+        <div class="row wrap secondary">
+          <button class="btn btn-ghost btn-sm" onclick={startEdit}>{m.common.edit}</button>
+          <button
+            class="btn btn-ghost btn-sm"
+            aria-expanded={showMovePanel}
+            onclick={() => (showMovePanel = !showMovePanel)}>{m.drawer.move}</button
+          >
           {#if canExport}
-            <div class="export-dropdown">
+            <div class="export">
               <button
-                class="icon-btn export"
-                onclick={() => (showExportMenu = !showExportMenu)}
-                title="Export"
+                class="btn btn-ghost btn-sm"
+                aria-expanded={showExportMenu}
+                onclick={() => (showExportMenu = !showExportMenu)}>{m.drawer.export}</button
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              </button>
               {#if showExportMenu}
-                <div class="export-menu">
+                <div class="menu">
                   {#if isZwoSupported(displayWorkout.sport)}
-                    <button class="export-option" onclick={() => handleExport("zwo")}>
-                      <span class="export-icon">Z</span>
-                      <div class="export-info">
-                        <div class="export-name">Zwift (.zwo)</div>
-                        <div class="export-desc">For Zwift indoor training</div>
-                      </div>
-                    </button>
+                    <button onclick={() => handleExport("zwo")}
+                      ><b>{m.drawer.exportZwo}</b><span>{m.drawer.exportZwoHint}</span></button
+                    >
                   {/if}
                   {#if isFitSupported(displayWorkout.sport)}
-                    <button class="export-option" onclick={() => handleExport("fit")}>
-                      <span class="export-icon">G</span>
-                      <div class="export-info">
-                        <div class="export-name">Garmin (.fit)</div>
-                        <div class="export-desc">For Garmin Connect</div>
-                      </div>
-                    </button>
+                    <button onclick={() => handleExport("fit")}
+                      ><b>{m.drawer.exportFit}</b><span>{m.drawer.exportFitHint}</span></button
+                    >
                   {/if}
                   {#if isErgSupported(displayWorkout.sport)}
-                    <button class="export-option" onclick={() => handleExport("mrc")}>
-                      <span class="export-icon">E</span>
-                      <div class="export-info">
-                        <div class="export-name">ERG/MRC (.mrc)</div>
-                        <div class="export-desc">For TrainerRoad, etc.</div>
-                      </div>
-                    </button>
+                    <button onclick={() => handleExport("mrc")}
+                      ><b>{m.drawer.exportMrc}</b><span>{m.drawer.exportMrcHint}</span></button
+                    >
                   {/if}
                 </div>
               {/if}
             </div>
           {/if}
-        </div>
-        <div class="footer-right">
-          {#if exportStatus}
-            <div class="export-status" class:error={exportStatus.isError}>
-              {exportStatus.message}
-            </div>
-          {/if}
-          <button
-            class="complete-btn"
-            class:mark={!displayWorkout.completed}
-            class:unmark={displayWorkout.completed}
-            onclick={() => onToggleComplete(displayWorkout.id)}
+          <button class="btn btn-ghost btn-sm btn-danger" onclick={() => (showDeleteConfirm = true)}
+            >{m.common.delete}</button
           >
-            {#if displayWorkout.completed}
-              <span>↩</span> Mark Incomplete
-            {:else}
-              <span>✓</span> Mark Complete
-            {/if}
-          </button>
         </div>
       {:else}
-        <button class="cancel-btn" onclick={cancelEdit}>Cancel</button>
-        <button class="save-btn" onclick={handleSave} disabled={!editName}>
-          {currentMode === "create" ? "Add Workout" : "Save Changes"}
-        </button>
-      {/if}
-    </div>
-
-    {#if showDeleteConfirm}
-      <div class="confirm-overlay">
-        <div class="confirm-dialog">
-          <p>Delete this workout?</p>
-          <div class="confirm-actions">
-            <button class="cancel-btn" onclick={() => (showDeleteConfirm = false)}>Cancel</button>
-            <button class="delete-btn" onclick={handleDelete}>Delete</button>
-          </div>
+        <div class="row">
+          <button class="btn btn-primary" onclick={handleSave} disabled={!editName}>
+            {currentMode === "create" ? m.drawer.add : m.drawer.saveChanges}
+          </button>
+          <button class="btn btn-ghost" onclick={cancelEdit}>{m.common.cancel}</button>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </footer>
   </div>
 </div>
 
 <style>
-  .modal-overlay {
+  .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
+    z-index: 100;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    opacity: 0;
-    visibility: hidden;
-    transition: all var(--transition-normal);
+    justify-content: flex-end;
+    background: rgba(15, 17, 21, 0.32);
   }
-
-  .modal-overlay.active {
-    opacity: 1;
-    visibility: visible;
-  }
-
-  .modal {
-    background: var(--bg-secondary);
-    border-radius: 20px;
-    max-width: 600px;
-    width: 100%;
-    max-height: 85vh;
-    overflow: hidden;
-    transform: scale(0.9) translateY(20px);
-    transition: transform var(--transition-normal);
-    border: 1px solid var(--border-medium);
-    position: relative;
+  .drawer {
     display: flex;
     flex-direction: column;
+    width: min(600px, 100vw);
+    height: 100%;
+    background: var(--sheet);
+    box-shadow: var(--shadow-float);
+    animation: slide-in var(--transition-normal) ease-out;
   }
-
-  /* Room for the recorded activity's charts. */
-  .modal.wide {
-    max-width: 760px;
+  @keyframes slide-in {
+    from {
+      transform: translateX(24px);
+      opacity: 0;
+    }
   }
-
-  .modal-overlay.active .modal {
-    transform: scale(1) translateY(0);
-  }
-
-  .modal-header {
-    padding: 1.5rem 2rem;
-    border-bottom: 1px solid var(--border-subtle);
+  header {
     display: flex;
+    justify-content: space-between;
     align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    flex-shrink: 0;
+    gap: var(--space-4);
+    padding: var(--space-6) var(--space-8) var(--space-4);
   }
-
-  .modal-sport-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.8rem;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.5rem;
-  }
-
-  .modal-sport-badge.swim {
-    background: var(--swim-glow);
-    color: var(--swim);
-  }
-  .modal-sport-badge.bike {
-    background: var(--bike-glow);
-    color: var(--bike);
-  }
-  .modal-sport-badge.run {
-    background: var(--run-glow);
-    color: var(--run);
-  }
-  .modal-sport-badge.strength {
-    background: var(--strength-glow);
-    color: var(--strength);
-  }
-  .modal-sport-badge.brick {
-    background: var(--brick-glow);
-    color: var(--brick);
-  }
-  .modal-sport-badge.race {
-    background: var(--race-glow);
-    color: var(--race);
-  }
-  .modal-sport-badge.rest {
-    background: var(--rest-glow);
-    color: var(--rest);
-  }
-
-  .modal-title {
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .modal-date {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    margin-top: 0.25rem;
-  }
-
-  .modal-close {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1px solid var(--border-medium);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition-fast);
-    flex-shrink: 0;
-  }
-
-  .modal-close:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-
-  .modal-body {
-    padding: 1.5rem 2rem;
-    overflow-y: auto;
-    flex: 1;
-  }
-
-  .modal-stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem 1.5rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-
-  .modal-stat {
-    text-align: center;
-  }
-
-  .modal-stat-value {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 1.5rem;
-    font-weight: 500;
-    color: var(--text-primary);
-  }
-
-  /* Zones are often a phrase ("Zone 3 (RP), short touches (158-164 bpm)"),
-   * not a number: give it its own line at reading size. */
-  .modal-stat.zone {
-    flex: 1 1 100%;
-  }
-
-  .modal-stat.zone .modal-stat-value {
-    font-size: 1rem;
-    line-height: 1.4;
-  }
-
-  .modal-stat-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-  }
-
-  .modal-section {
-    margin-bottom: 1.5rem;
-  }
-
-  .modal-section-title {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-muted);
-    margin-bottom: 0.75rem;
-  }
-
-  .modal-description {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-    line-height: 1.7;
-  }
-
-  .workout-structure {
-    background: var(--bg-tertiary);
-    border-radius: 12px;
-    padding: 1rem;
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.85rem;
-    line-height: 1.8;
-    color: var(--text-secondary);
-    white-space: pre-wrap;
-    margin: 0;
-  }
-
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .form-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .form-row.full {
-    margin-bottom: 1rem;
-  }
-
-  .form-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-  }
-
-  .form-input,
-  .form-select,
-  .form-textarea {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-medium);
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    transition: border-color var(--transition-fast);
-  }
-
-  .form-input:focus,
-  .form-select:focus,
-  .form-textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
-  .form-textarea {
-    resize: vertical;
-    min-height: 60px;
-  }
-
-  .form-textarea.mono {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.85rem;
-    line-height: 1.6;
-  }
-
-  .modal-footer {
-    padding: 1rem 2rem;
-    border-top: 1px solid var(--border-subtle);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-  }
-
-  .footer-left {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .icon-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    border: 1px solid var(--border-medium);
-    background: transparent;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition-fast);
-  }
-
-  .icon-btn svg {
+  header svg {
     width: 18px;
     height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
   }
-
-  .icon-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-  }
-
-  .icon-btn.delete:hover {
-    background: var(--danger-bg);
-    border-color: var(--danger-strong);
-    color: var(--danger-strong);
-  }
-
-  .icon-btn.edit:hover {
-    background: var(--bg-elevated);
-    border-color: var(--border-medium);
-    color: var(--text-primary);
-  }
-
-  .icon-btn.garmin:hover:not(:disabled) {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-  }
-
-  .icon-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .complete-btn {
+  .titles {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all var(--transition-fast);
-    border: none;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
   }
-
-  .complete-btn.mark {
-    background: var(--accent);
-    color: var(--accent-ink);
+  .first-cap::first-letter {
+    text-transform: uppercase;
   }
-
-  .complete-btn.mark:hover {
-    background: var(--warning);
-    transform: translateY(-2px);
-  }
-
-  .complete-btn.unmark {
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-medium);
-  }
-
-  .complete-btn.unmark:hover {
-    background: var(--bg-elevated);
-  }
-
-  .cancel-btn {
-    padding: 0.75rem 1.5rem;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-medium);
-    transition: all var(--transition-fast);
-  }
-
-  .cancel-btn:hover {
-    background: var(--bg-elevated);
-    color: var(--text-primary);
-  }
-
-  .save-btn {
-    padding: 0.75rem 1.5rem;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    background: var(--accent);
-    color: var(--accent-ink);
-    border: none;
-    transition: all var(--transition-fast);
-  }
-
-  .save-btn:hover:not(:disabled) {
-    background: var(--warning);
-    transform: translateY(-2px);
-  }
-
-  .save-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .confirm-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+  .body {
+    flex: 1;
+    overflow-y: auto;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 20px;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-2) var(--space-8) var(--space-8);
   }
-
-  .confirm-dialog {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-medium);
-    border-radius: 12px;
-    padding: 1.5rem;
-    text-align: center;
-  }
-
-  .confirm-dialog p {
-    font-size: 1rem;
-    color: var(--text-primary);
-    margin-bottom: 1rem;
-  }
-
-  .confirm-actions {
+  section {
     display: flex;
-    gap: 0.75rem;
-    justify-content: center;
+    flex-direction: column;
+    gap: var(--space-3);
   }
-
-  .delete-btn {
-    padding: 0.75rem 1.5rem;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    background: var(--danger-strong);
-    color: white;
-    border: none;
-    transition: all var(--transition-fast);
-  }
-
-  .delete-btn:hover {
-    background: color-mix(in srgb, var(--danger-strong) 85%, black);
-  }
-
-  .footer-right {
+  .figures {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: var(--space-4) var(--space-8);
   }
-
-  .recorded-row {
+  .figure {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .zone-value {
+    font-size: 16px;
+    line-height: 32px;
+    font-weight: 650;
+  }
+  .profile {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 72px;
+    padding: var(--space-2);
+    border-radius: var(--radius-s);
+    background: var(--sunk);
+  }
+  .step {
+    flex-basis: 0;
+    min-width: 3px;
+    border-radius: 2px 2px 0 0;
+    background: var(--z2);
+  }
+  .step.z1 {
+    height: 20%;
+    background: var(--z1);
+  }
+  .step.z2 {
+    height: 38%;
+  }
+  .step.z3 {
+    height: 58%;
+    background: var(--z3);
+  }
+  .step.z4 {
+    height: 78%;
+    background: var(--z4);
+  }
+  .step.z5 {
+    height: 100%;
+    background: var(--z5);
+  }
+  .profile-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-1);
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+  .description {
+    max-width: 65ch;
+  }
+  .steps {
+    max-width: 65ch;
+    white-space: pre-wrap;
+  }
+  .recorded {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
-    gap: 0.25rem 1rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--border-subtle);
-    font-size: 0.9rem;
+    gap: var(--space-1) var(--space-4);
+    font-weight: 600;
   }
-
-  .recorded-row:last-child {
-    border-bottom: none;
-  }
-
-  .recorded-row-summary {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-  }
-
-  .feedback-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-  }
-
-  .feedback-section .modal-section-title {
-    margin-bottom: 0;
-  }
-
-  .fb-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  .fb-label {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-  }
-
-  .rpe-scale {
+  .rpe {
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 4px;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: var(--space-1);
   }
-
-  .rpe-btn {
-    min-height: 40px;
+  .rpe .chip {
     padding: 0;
-    border-radius: 8px;
-    border: 1px solid var(--border-medium);
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.9rem;
   }
-
-  .rpe-btn.selected {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-  }
-
   .rpe-hint {
     display: flex;
     justify-content: space-between;
-    font-size: 0.7rem;
-    color: var(--text-muted);
   }
-
-  .feeling-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .feeling-chip {
-    padding: 0.5rem 0.9rem;
-    border-radius: 999px;
-    border: 1px solid var(--border-medium);
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-  }
-
-  .feeling-chip.selected {
-    border-color: var(--accent);
-    background: var(--accent-glow);
-    color: var(--text-primary);
-    font-weight: 600;
-  }
-
-  .fb-pain {
+  .check {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.9rem;
-    color: var(--text-primary);
+    gap: var(--space-2);
+    font-weight: 560;
   }
-
-  .fb-pain input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
+  .pill {
+    padding: 4px var(--space-3);
+    border-radius: var(--radius-pill);
+    background: var(--sunk);
+    font-size: 13px;
+    font-weight: 560;
   }
-
-  .fb-actions {
+  .pill.pain {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  .form {
     display: flex;
-    justify-content: flex-end;
-    gap: 0.6rem;
+    flex-direction: column;
+    gap: var(--space-4);
   }
-
-  .fb-remove {
-    margin-right: auto;
-    padding: 0.75rem 0.5rem;
-    border: none;
-    background: transparent;
-    color: var(--danger);
-    font-size: 0.85rem;
+  .pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
   }
-
-  .fb-error {
-    font-size: 0.85rem;
-    color: var(--danger);
-  }
-
-  .fb-hint {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    text-align: right;
-  }
-
-  .fb-summary {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .fb-pill {
-    padding: 0.3rem 0.7rem;
-    border-radius: 999px;
-    background: var(--bg-tertiary);
-    font-size: 0.85rem;
-    color: var(--text-primary);
-  }
-
-  .fb-pill.pain {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
-
-  .fb-notes {
-    margin: 0;
-    white-space: pre-wrap;
-  }
-
-  .fb-start,
-  .fb-edit {
-    align-self: flex-start;
-    padding: 0.6rem 1rem;
-    border-radius: 10px;
-    border: 1px dashed var(--border-medium);
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-  }
-
-  .fb-edit {
-    border-style: solid;
-  }
-
-  .move-panel {
+  .row {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 1rem 2rem;
-    border-top: 1px solid var(--border-subtle);
-    flex-shrink: 0;
+    gap: var(--space-2);
   }
-
-  .move-panel .form-input {
-    flex: 1;
-    min-width: 0;
-    color-scheme: dark;
+  .row.wrap {
+    flex-wrap: wrap;
   }
-
-  :global([data-theme="light"]) .move-panel .form-input {
-    color-scheme: light;
+  .secondary {
+    gap: var(--space-1);
+    margin-left: calc(-1 * var(--space-3));
   }
-
-  .icon-btn.move.active,
-  .icon-btn.move:hover {
-    background: var(--bg-elevated);
-    color: var(--text-primary);
+  .move {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-8);
+    border-top: 1px solid var(--line);
   }
-
-  /* Phone: full-screen sheet, roomier touch targets, footer wraps. */
-  @media (max-width: 800px) {
-    .modal-overlay {
-      padding: 0;
-    }
-
-    .modal {
-      max-width: none;
-      height: 100dvh;
-      max-height: 100dvh;
-      border-radius: 0;
-      border: none;
-    }
-
-    .modal-header,
-    .modal-body {
-      padding: 1rem 1.25rem;
-    }
-
-    .modal-close {
-      width: 44px;
-      height: 44px;
-      flex-shrink: 0;
-    }
-
-    .modal-footer {
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      padding: 0.75rem 1.25rem;
-    }
-
-    .footer-left {
-      flex-wrap: wrap;
-    }
-
-    .footer-right {
-      flex: 1 1 100%;
-      flex-wrap: wrap;
-    }
-
-    .complete-btn,
-    .cancel-btn,
-    .save-btn {
-      flex: 1;
-      justify-content: center;
-    }
-
-    .icon-btn {
-      width: 44px;
-      height: 44px;
-    }
-
-    .move-panel {
-      flex-wrap: wrap;
-      padding: 0.75rem 1.25rem;
-    }
-
-    .move-panel .form-label {
-      flex-basis: 100%;
-    }
+  .confirm {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin: 0 var(--space-8) var(--space-4);
   }
-
-  .export-dropdown {
+  footer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-8) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+  }
+  footer svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .status {
+    color: var(--ink-muted);
+  }
+  .status.error {
+    color: var(--danger);
+  }
+  .export {
     position: relative;
   }
-
-  .icon-btn.export:hover {
-    background: var(--bg-elevated);
-    border-color: var(--border-medium);
-    color: var(--text-primary);
-  }
-
-  .export-menu {
+  .menu {
     position: absolute;
-    bottom: calc(100% + 8px);
     left: 0;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-medium);
-    border-radius: 12px;
-    padding: 0.5rem;
-    min-width: 200px;
-    z-index: 10;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  .export-option {
+    bottom: calc(100% + var(--space-1));
+    z-index: 2;
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    padding: 0.75rem;
-    border: none;
-    background: transparent;
-    color: var(--text-primary);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background var(--transition-fast);
+    flex-direction: column;
+    min-width: 240px;
+    padding: var(--space-1);
+    border-radius: var(--radius-m);
+    background: var(--sheet);
+    box-shadow: var(--shadow-float);
   }
-
-  .export-option:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .export-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    background: var(--bg-tertiary);
+  .menu button {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.85rem;
-    color: var(--accent);
-  }
-
-  .export-info {
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-s);
+    background: none;
     text-align: left;
+    font: inherit;
+  }
+  .menu button:hover {
+    background: var(--sunk);
+  }
+  .menu span {
+    font-size: 12px;
+    color: var(--ink-muted);
   }
 
-  .export-name {
-    font-size: 0.9rem;
-    font-weight: 500;
-  }
-
-  .export-desc {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  .export-status {
-    font-size: 0.8rem;
-    color: var(--accent);
-    padding: 0.4rem 0.8rem;
-    background: var(--accent-glow);
-    border-radius: 6px;
-  }
-
-  .export-status.error {
-    color: var(--danger-strong);
-    background: var(--danger-bg);
+  @media (max-width: 800px) {
+    .drawer {
+      width: 100vw;
+    }
+    header,
+    .body,
+    footer,
+    .move {
+      padding-left: var(--space-4);
+      padding-right: var(--space-4);
+    }
+    .confirm {
+      margin: 0 var(--space-4) var(--space-4);
+    }
   }
 </style>

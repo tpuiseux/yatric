@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import { base } from "$app/paths";
   import AuthShell from "$lib/components/AuthShell.svelte";
+  import { getI18n } from "$lib/i18n/index.js";
   import type { ActionData, PageData } from "./$types";
 
   interface Props {
@@ -10,25 +11,28 @@
   }
 
   let { data, form }: Props = $props();
+
+  const i18n = getI18n();
+  const m = $derived(i18n.m);
 </script>
 
 <svelte:head>
-  <title>Create an account — Yatric</title>
+  <title>{m.auth.pageSignup} · Yatric</title>
 </svelte:head>
 
-<AuthShell title="Create your account" subtitle="Then the coach builds your plan with you.">
+<AuthShell title={m.auth.signupTitle} subtitle={m.auth.signupSubtitle}>
   <form method="POST" use:enhance>
     {#if form?.error}
-      <p class="notice error">{form.error}</p>
+      <p class="notice error" role="alert">{m.auth.errors[form.error]?.(form.n ?? 0)}</p>
     {/if}
 
     <label class="field">
-      Invite code
+      {m.auth.inviteCode}
       <input class="input" type="text" name="inviteCode" autocomplete="off" required />
     </label>
 
     <label class="field">
-      Email
+      {m.auth.email}
       <input
         class="input"
         type="email"
@@ -40,19 +44,20 @@
     </label>
 
     <label class="field">
-      <span>Name <span class="optional">(optional)</span></span>
+      {m.auth.name}
       <input
         class="input"
         type="text"
         name="name"
         value={form?.name ?? ""}
-        autocomplete="name"
+        autocomplete="given-name"
         maxlength="100"
       />
+      <span class="field-hint">{m.auth.optional}</span>
     </label>
 
     <label class="field">
-      Password
+      {m.auth.password}
       <input
         class="input"
         type="password"
@@ -61,11 +66,11 @@
         minlength={data.minPasswordLength}
         required
       />
-      <span class="hint">At least {data.minPasswordLength} characters.</span>
+      <span class="field-hint">{m.auth.passwordHint(data.minPasswordLength)}</span>
     </label>
 
     <label class="field">
-      Confirm password
+      {m.auth.confirmPassword}
       <input
         class="input"
         type="password"
@@ -76,46 +81,8 @@
       />
     </label>
 
-    <button class="btn btn-primary btn-lg" type="submit">Create account</button>
+    <button class="btn btn-primary btn-lg" type="submit">{m.auth.createAccount}</button>
 
-    <p class="switch">Already have an account? <a href="{base}/login">Log in</a></p>
+    <p class="switch">{m.auth.haveAccount} <a href="{base}/login">{m.auth.logIn}</a></p>
   </form>
 </AuthShell>
-
-<style>
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  button {
-    margin-top: 0.25rem;
-  }
-
-  .optional,
-  .hint {
-    color: var(--text-muted);
-    font-weight: 400;
-  }
-
-  .hint {
-    font-size: 0.8rem;
-  }
-
-  .switch {
-    text-align: center;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-  }
-
-  .switch a {
-    color: var(--accent);
-    font-weight: 550;
-    text-decoration: none;
-  }
-
-  .switch a:hover {
-    text-decoration: underline;
-  }
-</style>

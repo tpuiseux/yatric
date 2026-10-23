@@ -121,19 +121,6 @@ export function parseDate(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
-export function getSportColor(sport: Sport): string {
-  const colors: Record<Sport, string> = {
-    swim: "var(--swim)",
-    bike: "var(--bike)",
-    run: "var(--run)",
-    strength: "var(--strength)",
-    brick: "var(--brick)",
-    race: "var(--race)",
-    rest: "var(--rest)",
-  };
-  return colors[sport] || "var(--text-muted)";
-}
-
 export function getSportIcon(sport: Sport): string {
   const icons: Record<Sport, string> = {
     swim: "\u{1F3CA}",
@@ -167,17 +154,4 @@ export function formatRelativeTime(iso: string, now = Date.now()): string {
   if (hours < 24) return `${hours} h ago`;
   const days = Math.round(hours / 24);
   return `${days} day${days > 1 ? "s" : ""} ago`;
-}
-
-/** The CSS colour for a phase, from the kind of phase its name says it is. */
-export function phaseColor(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("taper") || n.includes("race")) return "var(--phase-taper)";
-  if (n.includes("peak") || n.includes("specific")) return "var(--phase-peak)";
-  if (n.includes("rebuild") || n.includes("transition")) return "var(--phase-rebuild)";
-  if (n.includes("recovery")) return "var(--phase-recovery)";
-  if (n.includes("build")) return "var(--phase-build)";
-  if (n.includes("survival")) return "var(--race)";
-  if (n.includes("bank")) return "var(--bike)";
-  return "var(--phase-base)";
 }

@@ -178,6 +178,9 @@ describe("morningRead", () => {
     expect(fatigueSignals(days)).toEqual([
       {
         key: "restingHr",
+        code: "restingHrIllness",
+        n: 9,
+        level: "red",
         text: "Resting heart rate up 9 bpm on the week before, with HRV low: more likely illness, heat, alcohol or dehydration than training - rest or keep it very easy",
       },
     ]);

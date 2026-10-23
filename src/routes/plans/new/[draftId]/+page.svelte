@@ -5,7 +5,8 @@
   import Logo from "$lib/components/Logo.svelte";
   import type { DraftView } from "$lib/planDraft.js";
   import { renderMarkdown } from "$lib/markdown.js";
-  import { formatDuration } from "$lib/utils.js";
+  import { getI18n } from "$lib/i18n/index.js";
+  import { intensityOf } from "$lib/intensity.js";
   import type { PageData } from "./$types";
 
   interface Props {
@@ -13,6 +14,10 @@
   }
 
   let { data }: Props = $props();
+
+  const i18n = getI18n();
+  const m = $derived(i18n.m);
+  const fmt = $derived(i18n.fmt);
 
   let draft = $state<DraftView>(untrack(() => data.draft));
   let feedback = $state("");
@@ -52,7 +57,7 @@
         body: JSON.stringify({ action, text }),
       });
       const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.message ?? `Request failed (${res.status})`);
+      if (!res.ok) throw new Error(body?.message ?? m.common.requestFailed(res.status));
       if (action === "adopt") {
         await goto(`${base}/plans/${body.planId}`);
         return;
@@ -61,18 +66,10 @@
       feedback = "";
       schedule();
     } catch (err) {
-      errorText = err instanceof Error ? err.message : "Something went wrong.";
+      errorText = err instanceof Error ? err.message : m.common.somethingWrong;
     } finally {
       busy = false;
     }
-  }
-
-  function shortDate(date: string): string {
-    return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      timeZone: "UTC",
-    });
   }
 
   const progress = $derived(
@@ -81,59 +78,68 @@
 </script>
 
 <svelte:head>
-  <title>{draft.form.raceName} — new plan</title>
+  <title>{draft.form.raceName} · {m.builder.newPlan}</title>
 </svelte:head>
 
+<header class="bar">
+  <a href="{base}/" class="home" aria-label={m.nav.allPlans}><Logo /></a>
+  <a class="btn btn-ghost btn-sm" href="{base}/">{m.nav.allPlans}</a>
+</header>
+
 <main>
-  <nav class="top">
-    <a class="home" href="{base}/" aria-label="All plans"><Logo size={26} /></a>
-    <a class="back" href="{base}/">All plans</a>
-  </nav>
-  <h1>{draft.form.raceName}</h1>
-  <p class="sub">
-    {shortDate(draft.form.raceDate)} · {draft.totalWeeks} weeks from {shortDate(
-      draft.form.startDate
-    )}
-  </p>
+  <div class="heading">
+    <h1 class="title-l">{draft.form.raceName}</h1>
+    <p class="muted">
+      {m.builder.sub(
+        fmt.date(draft.form.raceDate, "dayMonth"),
+        draft.totalWeeks,
+        fmt.date(draft.form.startDate, "dayMonth")
+      )}
+    </p>
+  </div>
 
   {#if draft.status === "assessing"}
     <div class="working" role="status">
-      <span class="spinner"></span>
-      The coach is looking at your answers{draft.assessment ? " and your changes" : ""}… usually
-      under a minute.
+      <span class="spinner" aria-hidden="true"></span>
+      {draft.assessment ? m.builder.assessingChanges : m.builder.assessing}
     </div>
   {/if}
 
   {#if draft.assessment && (draft.status === "awaiting_confirmation" || draft.status === "assessing")}
-    <section class="card" class:dim={draft.status === "assessing"}>
-      <h2>The coach's assessment</h2>
-      <div class="markdown">{@html renderMarkdown(draft.assessment.message)}</div>
-      <div class="outline">
-        <div><span>Goal</span><strong>{draft.assessment.goalTime}</strong></div>
+    <section class:dim={draft.status === "assessing"}>
+      <h2 class="title-m">{m.builder.assessment}</h2>
+      <div class="markdown message">{@html renderMarkdown(draft.assessment.message)}</div>
+      <dl class="outline">
+        <div>
+          <dt>{m.builder.goal}</dt>
+          <dd class="figure-m">{draft.assessment.goalTime}</dd>
+        </div>
         {#each draft.assessment.phases as p (p.name + p.startWeek)}
           <div>
-            <span
-              >{p.startWeek === p.endWeek
-                ? `Week ${p.startWeek}`
-                : `Weeks ${p.startWeek}–${p.endWeek}`}</span
-            ><strong>{p.name}</strong>
-            <em>{p.focus}</em>
+            <dt>{m.builder.weekRange(p.startWeek, p.endWeek)}</dt>
+            <dd><b>{p.name}</b> <span class="muted">{p.focus}</span></dd>
           </div>
         {/each}
-      </div>
+      </dl>
       {#if draft.status === "awaiting_confirmation"}
         <div class="answer">
           <textarea
+            class="input"
             bind:value={feedback}
             rows="3"
-            placeholder="Something to change? e.g. I can only do 3 runs a week, aim for 3:20…"
+            aria-label={m.builder.askChanges}
+            placeholder={m.builder.changePlaceholder}
           ></textarea>
           <div class="buttons">
-            <button disabled={busy || !feedback.trim()} onclick={() => act("feedback", feedback)}>
-              Ask for changes
+            <button class="btn btn-primary" disabled={busy} onclick={() => act("confirm")}>
+              {m.builder.confirm}
             </button>
-            <button class="primary" disabled={busy} onclick={() => act("confirm")}>
-              Looks good - write my plan
+            <button
+              class="btn"
+              disabled={busy || !feedback.trim()}
+              onclick={() => act("feedback", feedback)}
+            >
+              {m.builder.askChanges}
             </button>
           </div>
         </div>
@@ -142,10 +148,10 @@
   {/if}
 
   {#if draft.status === "generating"}
-    <section class="card">
-      <h2>Writing your plan</h2>
+    <section>
+      <h2 class="title-m">{m.builder.writing}</h2>
       <div
-        class="bar"
+        class="track"
         role="progressbar"
         aria-valuenow={progress}
         aria-valuemin="0"
@@ -154,56 +160,65 @@
         <div style:width="{Math.max(progress, 3)}%"></div>
       </div>
       <p class="muted">
-        Week {Math.min(draft.weeks.length + 1, draft.totalWeeks)} of {draft.totalWeeks}… You can
-        leave this page: the coach carries on, and the plan will be here when you come back.
+        {m.builder.writingProgress(
+          Math.min(draft.weeks.length + 1, draft.totalWeeks),
+          draft.totalWeeks
+        )}
       </p>
     </section>
   {/if}
 
   {#if draft.status === "failed"}
-    <section class="card">
-      <p class="error">{draft.error ?? "Something went wrong."}</p>
-      <button class="primary" disabled={busy} onclick={() => act("retry")}>Retry</button>
+    <section>
+      <p class="notice error">{draft.error ?? m.common.somethingWrong}</p>
+      <div>
+        <button class="btn btn-primary" disabled={busy} onclick={() => act("retry")}
+          >{m.builder.retry}</button
+        >
+      </div>
     </section>
   {/if}
 
   {#if draft.status === "ready"}
-    <section class="card">
-      <h2>Your plan is ready</h2>
-      <p class="muted">
-        Look it over below, then adopt it. You can still change it afterwards, by hand or with the
-        coach.
-      </p>
-      <button class="primary" disabled={busy} onclick={() => act("adopt")}>Adopt this plan</button>
+    <section>
+      <h2 class="title-m">{m.builder.ready}</h2>
+      <p>{m.builder.readyText}</p>
+      <div>
+        <button class="btn btn-primary btn-lg" disabled={busy} onclick={() => act("adopt")}
+          >{m.builder.adopt}</button
+        >
+      </div>
     </section>
   {/if}
 
   {#if draft.status === "adopted" && draft.planId}
-    <section class="card">
-      <p>This plan was adopted.</p>
-      <a class="primary link" href="{base}/plans/{draft.planId}">Open it</a>
+    <section>
+      <p>{m.builder.adopted}</p>
+      <div><a class="btn btn-primary" href="{base}/plans/{draft.planId}">{m.builder.open}</a></div>
     </section>
   {/if}
 
-  {#if errorText}<p class="error" role="alert">{errorText}</p>{/if}
+  {#if errorText}<p class="notice error" role="alert">{errorText}</p>{/if}
 
   {#if draft.weeks.length > 0}
     <section class="weeks">
       {#each draft.weeks as week (week.weekNumber)}
         <div class="week">
           <div class="week-head">
-            <span class="num">W{week.weekNumber}</span>
-            <span class="phase">{week.phase}</span>
-            <span class="focus">{week.focus}</span>
-            <span class="hours">{week.summary.totalHours} h</span>
+            <b>{m.builder.weekShort(week.weekNumber)}</b>
+            <span class="muted">{week.phase}</span>
+            <span class="muted focus">{week.focus}</span>
+            <span class="num">{m.builder.hours(fmt.number(week.summary.totalHours, 1))}</span>
           </div>
           <ul>
             {#each week.days as day (day.date)}
               {#each day.workouts.filter((w) => w.sport !== "rest") as w (w.id)}
                 <li>
-                  <span class="day">{day.dayOfWeek.slice(0, 3)}</span>
-                  <span class="name sport-{w.sport}">{w.name}</span>
-                  {#if w.durationMinutes}<span class="dur">{formatDuration(w.durationMinutes)}</span
+                  <span class="day">{fmt.date(day.date, "weekday")}</span>
+                  <span class="dot {intensityOf(w)}" aria-hidden="true"></span>
+                  <span class="name">{w.name}</span>
+                  {#if w.durationMinutes}<span class="num muted"
+                      >{fmt.duration(w.durationMinutes)}</span
                     >{/if}
                 </li>
               {/each}
@@ -216,306 +231,165 @@
 </main>
 
 <style>
-  main {
-    max-width: 760px;
-    margin: 2rem auto 4rem;
-    padding: 0 1.5rem;
-  }
-
-  .top {
+  .bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1.75rem;
+    gap: var(--space-4);
+    min-height: 56px;
+    padding: 0 var(--space-8);
+    border-bottom: 1px solid var(--line);
   }
-
   .home {
-    display: inline-flex;
+    display: flex;
     text-decoration: none;
   }
-
-  .back {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    text-decoration: none;
+  main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    max-width: 760px;
+    padding: var(--space-12) var(--space-8);
   }
-
-  h1 {
-    font-size: 1.75rem;
-    font-weight: 650;
-    margin: 0 0 0.25rem;
+  .heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
-
-  .sub {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-bottom: 1.25rem;
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--line);
   }
-
-  h2 {
-    font-size: 1rem;
-    margin-bottom: 0.75rem;
+  section.dim {
+    opacity: 0.55;
   }
-
-  .card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    padding: 1.1rem 1.25rem;
-    margin-bottom: 1.25rem;
+  .message {
+    max-width: 65ch;
   }
-
-  .card.dim {
-    opacity: 0.6;
+  .outline {
+    display: flex;
+    flex-direction: column;
   }
-
+  .outline div {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: baseline;
+    padding: var(--space-2) 0;
+    border-top: 1px solid var(--line);
+  }
+  .outline dt {
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+  .answer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
   .working {
     display: flex;
     align-items: center;
-    gap: 0.7rem;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-bottom: 1.25rem;
+    gap: var(--space-3);
+    color: var(--ink-muted);
   }
-
   .spinner {
     width: 16px;
     height: 16px;
+    border: 2px solid var(--line);
+    border-top-color: var(--signal);
     border-radius: 50%;
-    border: 2px solid var(--border-medium);
-    border-top-color: var(--accent);
-    animation: spin 0.9s linear infinite;
+    animation: spin 0.8s linear infinite;
   }
-
   @keyframes spin {
     to {
       transform: rotate(360deg);
     }
   }
-
-  .markdown {
-    font-size: 0.9rem;
-    line-height: 1.55;
-  }
-
-  .markdown :global(p),
-  .markdown :global(ul),
-  .markdown :global(ol) {
-    margin: 0 0 0.6rem;
-  }
-
-  .markdown :global(ul),
-  .markdown :global(ol) {
-    padding-left: 1.2rem;
-  }
-
-  .outline {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border-subtle);
-    font-size: 0.85rem;
-  }
-
-  .outline div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.2rem 0.7rem;
-  }
-
-  .outline span {
-    color: var(--text-muted);
-    min-width: 6.5rem;
-  }
-
-  .outline em {
-    color: var(--text-secondary);
-    font-style: normal;
-    flex-basis: 100%;
-    padding-left: 7.2rem;
-  }
-
-  .answer {
-    margin-top: 1rem;
-  }
-
-  textarea {
-    width: 100%;
-    padding: 0.6rem 0.75rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-medium);
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font: inherit;
-    font-size: 0.9rem;
-    resize: vertical;
-  }
-
-  .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.6rem;
-    justify-content: flex-end;
-  }
-
-  button,
-  .link {
-    padding: 0.6rem 1rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-medium);
-    background: transparent;
-    color: var(--text-primary);
-    font-size: 0.88rem;
-    text-decoration: none;
-    display: inline-block;
-  }
-
-  .primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 700;
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .bar {
-    height: 8px;
-    border-radius: 4px;
-    background: var(--bg-tertiary);
+  .track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--line);
     overflow: hidden;
   }
-
-  .bar div {
+  .track div {
     height: 100%;
-    background: var(--accent);
-    transition: width var(--transition-slow);
+    background: var(--signal);
+    transition: width var(--transition-normal);
   }
-
-  .muted {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    margin: 0.6rem 0;
-  }
-
-  .error {
-    padding: 0.6rem 0.8rem;
-    border-radius: 8px;
-    background: var(--danger-bg);
-    color: var(--danger);
-    font-size: 0.85rem;
-    margin-bottom: 0.75rem;
-  }
-
   .weeks {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+    gap: var(--space-6);
   }
-
-  .week {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    padding: 0.8rem 1rem;
-  }
-
   .week-head {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 0.3rem 0.8rem;
-    font-size: 0.82rem;
-    margin-bottom: 0.5rem;
+    gap: var(--space-1) var(--space-3);
   }
-
-  .num {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
-  }
-
-  .phase {
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 0.75rem;
-  }
-
   .focus {
-    color: var(--text-secondary);
     flex: 1;
+    min-width: 0;
+    font-size: 13px;
   }
-
-  .hours {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    color: var(--text-secondary);
-  }
-
-  ul {
+  .week ul {
     list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    font-size: 0.85rem;
+    margin-top: var(--space-2);
   }
-
-  li {
-    display: flex;
-    gap: 0.7rem;
+  .week li {
+    display: grid;
+    grid-template-columns: 48px 10px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 4px 0;
+    font-size: 14px;
   }
-
   .day {
-    width: 2.5rem;
-    color: var(--text-muted);
+    color: var(--ink-muted);
+    font-size: 13px;
   }
-
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--z2);
+  }
+  .dot.z1 {
+    background: var(--z1);
+  }
+  .dot.z3 {
+    background: var(--z3);
+  }
+  .dot.z4 {
+    background: var(--z4);
+  }
+  .dot.z5 {
+    background: var(--z5);
+  }
+  .dot.race {
+    background: var(--race);
+  }
   .name {
-    flex: 1;
+    overflow-wrap: anywhere;
   }
 
-  .sport-run,
-  .sport-race {
-    color: var(--run);
-  }
-
-  .sport-strength {
-    color: var(--strength);
-  }
-
-  .dur {
-    color: var(--text-secondary);
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.8rem;
-  }
-
-  @media (max-width: 600px) {
+  @media (max-width: 640px) {
+    .bar {
+      padding: 0 var(--space-4);
+    }
     main {
-      margin-top: 1rem;
-      padding: 0 1rem;
+      padding: var(--space-8) var(--space-4);
     }
-
-    .outline em {
-      padding-left: 0;
-    }
-
-    textarea {
-      font-size: 16px;
-    }
-
-    .buttons button {
-      flex: 1;
-      min-height: 44px;
+    .outline div {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 2px;
     }
   }
 </style>

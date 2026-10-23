@@ -17,7 +17,7 @@ export const actions: Actions = {
     const password = String(data.get("password") ?? "");
 
     if (!email || !password) {
-      return fail(400, { error: "Email and password are required.", email });
+      return fail(400, { error: "required" as const, n: 0, email });
     }
 
     const ip = getClientAddress();
@@ -27,16 +27,13 @@ export const actions: Actions = {
     const retryAfter = loginBlockedFor(email, ip);
     if (retryAfter !== null) {
       const minutes = Math.ceil(retryAfter / 60);
-      return fail(429, {
-        error: `Too many failed attempts. Try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
-        email,
-      });
+      return fail(429, { error: "tooMany" as const, n: minutes, email });
     }
 
     const user = verifyLogin(email, password);
     if (!user) {
       recordLoginFailure(email, ip);
-      return fail(401, { error: "Incorrect email or password.", email });
+      return fail(401, { error: "incorrect" as const, n: 0, email });
     }
     recordLoginSuccess(email);
 

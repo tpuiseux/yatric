@@ -29,6 +29,10 @@ export type ReviewFlagLevel = "warning" | "info";
 
 export interface ReviewFlag {
   level: ReviewFlagLevel;
+  /** Which flag, for the interface's own wording (lib/i18n), and its figure. */
+  code: "missed" | "easyTooHard" | "pain" | "acwr" | "hrvLow" | "sleep" | "readiness";
+  n: number;
+  /** In English, for the coach. */
   text: string;
 }
 
@@ -140,32 +144,61 @@ export function reviewWeek(
   const pain = reports.filter((r) => r.pain).map((r) => r.painNotes?.trim() || "pain reported");
   const flags: ReviewFlag[] = [];
   if (missed.length) {
-    flags.push({ level: "info", text: `${missed.length} missed` });
+    flags.push({
+      level: "info",
+      code: "missed",
+      n: missed.length,
+      text: `${missed.length} missed`,
+    });
   }
   const ceiling = easyCeiling(hrZones);
   if (easyRuns?.heartrate && ceiling && easyRuns.heartrate > ceiling) {
     flags.push({
       level: "warning",
+      code: "easyTooHard",
+      n: Math.round(easyRuns.heartrate),
       text: `Easy runs above zone 2 (${Math.round(easyRuns.heartrate)} bpm)`,
     });
   }
   if (pain.length) {
     flags.push({
       level: "warning",
+      code: "pain",
+      n: pain.length,
       text: pain.length === 1 ? "Pain reported" : `Pain reported ×${pain.length}`,
     });
   }
   if (recovery?.acwr && recovery.acwr > 1.5) {
-    flags.push({ level: "warning", text: `Load ramping fast (ACWR ${recovery.acwr.toFixed(1)})` });
+    flags.push({
+      level: "warning",
+      code: "acwr",
+      n: recovery.acwr,
+      text: `Load ramping fast (ACWR ${recovery.acwr.toFixed(1)})`,
+    });
   }
   if (recovery && recovery.hrvLowDays >= 3) {
-    flags.push({ level: "warning", text: `HRV low ${recovery.hrvLowDays} days` });
+    flags.push({
+      level: "warning",
+      code: "hrvLow",
+      n: recovery.hrvLowDays,
+      text: `HRV low ${recovery.hrvLowDays} days`,
+    });
   }
   if (recovery?.sleepScore && recovery.sleepScore < 60) {
-    flags.push({ level: "warning", text: `Poor sleep (score ${Math.round(recovery.sleepScore)})` });
+    flags.push({
+      level: "warning",
+      code: "sleep",
+      n: Math.round(recovery.sleepScore),
+      text: `Poor sleep (score ${Math.round(recovery.sleepScore)})`,
+    });
   }
   if (recovery?.readiness && recovery.readiness < 40) {
-    flags.push({ level: "warning", text: `Low readiness (${Math.round(recovery.readiness)})` });
+    flags.push({
+      level: "warning",
+      code: "readiness",
+      n: Math.round(recovery.readiness),
+      text: `Low readiness (${Math.round(recovery.readiness)})`,
+    });
   }
 
   return {

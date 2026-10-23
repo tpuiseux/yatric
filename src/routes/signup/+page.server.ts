@@ -23,11 +23,7 @@ export const actions: Actions = {
     const retryAfter = signupBlockedFor(ip);
     if (retryAfter !== null) {
       const minutes = Math.ceil(retryAfter / 60);
-      return fail(429, {
-        error: `Too many attempts. Try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
-        email,
-        name,
-      });
+      return fail(429, { error: "tooMany" as const, n: minutes, email, name });
     }
     // Every attempt counts, successful or not: this bounds both guessing
     // the invite code and creating accounts in bulk from one address.
@@ -43,7 +39,7 @@ export const actions: Actions = {
         inviteCode: field("inviteCode"),
       }).id;
     } catch (err) {
-      if (err instanceof SignupError) return fail(400, { error: err.message, email, name });
+      if (err instanceof SignupError) return fail(400, { error: err.code, n: err.n, email, name });
       throw err;
     }
 
