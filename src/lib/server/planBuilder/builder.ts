@@ -6,6 +6,8 @@ import { autoCompleteFromActivities, resetAutoCompletions } from "../autoComplet
 import { errorMessage, getAnthropic } from "../coach/agent.js";
 import { recordUsage } from "../coach/store.js";
 import { checkRange, listActivities } from "../coach/tools.js";
+import { checkWeeks } from "../../guardrails.js";
+import { guardrailContext } from "../guardrails.js";
 import { stampPaceReference } from "../coach/changes.js";
 import { importPlanForUser } from "../plans.js";
 import { ValidationError } from "../validation.js";
@@ -197,6 +199,10 @@ function runTool(
       if (!frame) throw new ValidationError(`weekNumber must be 1 to ${frames.length}`);
       const { week, notes } = parseWeek(input, frame, draft.form, draft.assessment.phases);
       const weeks = { ...draft.weeks, [week.weekNumber]: week };
+      const guard = guardrailContext(userId, frames[0].startDate);
+      for (const f of checkWeeks(Object.values(weeks), guard)) {
+        if (f.weekNumber === week.weekNumber) notes.push(f.text);
+      }
       updateDraft(draftId, { weeks });
       const next = nextWeek({ ...draft, weeks });
       return JSON.stringify({

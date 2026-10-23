@@ -129,10 +129,85 @@ function streak(days: LoadDay[], test: (d: LoadDay) => boolean | null): number {
   return n;
 }
 
+function median(values: number[]): number {
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+/**
+ * Resting heart rate on day i against the median of the 7 days before it,
+ * or null without the reading or at least 4 days to compare with.
+ */
+function restingHrRise(days: LoadDay[], i: number): number | null {
+  const hr = days[i]?.restingHr;
+  if (hr == null) return null;
+  const before = days
+    .slice(Math.max(0, i - 7), i)
+    .map((d) => d.restingHr)
+    .filter((v): v is number => v !== null);
+  if (before.length < 4) return null;
+  return hr - median(before);
+}
+
+/** Wrist resting HR moves 3-5 bpm from day to day on its own: it only
+ * counts as up past +7 on the week's median, or +5 two days running. */
+const RHR_CLEARLY_UP = 7;
+const RHR_UP_TWO_DAYS = 5;
+/** Garmin's "poor" training readiness band. */
+const READINESS_POOR = 25;
+
+export interface MorningRead {
+  date: string;
+  /** HRV status low last night; null without a status. */
+  hrvLow: boolean | null;
+  /** Resting HR against the week before, in bpm; null without enough data. */
+  restingHrRise: number | null;
+  /** Clearly up: past the noise of a single wrist reading. */
+  restingHrUp: boolean | null;
+  /** HRV low and resting HR up, or readiness poor: no hard session today or tomorrow. */
+  red: boolean;
+}
+
+/**
+ * How the body reads on day i, from HRV and resting heart rate together:
+ * HRV says whether training is getting on top of the athlete, resting HR
+ * whether something else is (illness, heat, alcohol, dehydration) - it
+ * stays flat or drops when training alone is the cause.
+ */
+export function morningRead(days: LoadDay[], i: number): MorningRead {
+  const d = days[i];
+  const hrvLow = d.hrvStatus ? HRV_LOW.includes(d.hrvStatus.toUpperCase()) : null;
+  const rise = restingHrRise(days, i);
+  const prev = i > 0 ? restingHrRise(days, i - 1) : null;
+  const restingHrUp =
+    rise === null
+      ? null
+      : rise > RHR_CLEARLY_UP || (rise >= RHR_UP_TWO_DAYS && (prev ?? 0) >= RHR_UP_TWO_DAYS);
+  const poorReadiness = d.readiness !== null && d.readiness < READINESS_POOR;
+  return {
+    date: d.date,
+    hrvLow,
+    restingHrRise: rise === null ? null : Math.round(rise),
+    restingHrUp,
+    red: (hrvLow === true && restingHrUp === true) || poorReadiness,
+  };
+}
+
+/** The days, among the last `last`, that read red (see morningRead). */
+export function redDays(days: LoadDay[], last = 2): string[] {
+  const out: string[] = [];
+  for (let i = Math.max(0, days.length - last); i < days.length; i++) {
+    if (morningRead(days, i).red) out.push(days[i].date);
+  }
+  return out;
+}
+
 /**
  * Signs the body is behind the training, as of the last day: load ramping
  * faster than fitness, HRV below its normal range, readiness or sleep low
- * several days running, resting heart rate up on its usual level.
+ * several days running, resting heart rate clearly up on the week before -
+ * read together with HRV to tell training fatigue from something else.
  */
 export function fatigueSignals(days: LoadDay[]): FatigueSignal[] {
   const recent = days.slice(-7);
@@ -147,31 +222,38 @@ export function fatigueSignals(days: LoadDay[]): FatigueSignal[] {
   const hrv = streak(recent, (d) =>
     d.hrvStatus ? HRV_LOW.includes(d.hrvStatus.toUpperCase()) : null
   );
-  if (hrv >= 3) out.push({ key: "hrv", text: `HRV below your normal range ${hrv} days running` });
+  // This morning (or the latest morning with a reading, at most a day back).
+  let latest = -1;
+  for (let i = days.length - 1; i >= Math.max(0, days.length - 2); i--) {
+    if (days[i].restingHr !== null || days[i].hrvStatus !== null) {
+      latest = i;
+      break;
+    }
+  }
+  const today = latest >= 0 ? morningRead(days, latest) : null;
+
+  if (hrv >= 3) {
+    out.push({ key: "hrv", text: `HRV below your normal range ${hrv} days running` });
+  } else if (today?.hrvLow && today.restingHrUp === false) {
+    out.push({
+      key: "hrv",
+      text: "HRV low with resting heart rate steady: stress or short sleep rather than illness - easy running is fine, skip the intensity",
+    });
+  }
   const readiness = streak(recent, (d) => (d.readiness === null ? null : d.readiness < 40));
   if (readiness >= 3)
     out.push({ key: "readiness", text: `Low training readiness ${readiness} days running` });
   const sleep = streak(recent, (d) => (d.sleepScore === null ? null : d.sleepScore < 60));
   if (sleep >= 3) out.push({ key: "sleep", text: `Poor sleep ${sleep} nights running` });
 
-  // Resting HR: the last 3 days against the 4 weeks before them.
-  const before = days
-    .slice(-31, -3)
-    .map((d) => d.restingHr)
-    .filter((v): v is number => v !== null);
-  const now = days
-    .slice(-3)
-    .map((d) => d.restingHr)
-    .filter((v): v is number => v !== null);
-  if (before.length >= 14 && now.length >= 2) {
-    const baseline = before.reduce((a, b) => a + b, 0) / before.length;
-    const current = now.reduce((a, b) => a + b, 0) / now.length;
-    if (current - baseline >= 5) {
-      out.push({
-        key: "restingHr",
-        text: `Resting heart rate up ${Math.round(current - baseline)} bpm on your usual`,
-      });
-    }
+  if (today?.restingHrUp) {
+    const up = `Resting heart rate up ${today.restingHrRise} bpm on the week before`;
+    out.push({
+      key: "restingHr",
+      text: today.hrvLow
+        ? `${up}, with HRV low: more likely illness, heat, alcohol or dehydration than training - rest or keep it very easy`
+        : `${up}: hold off hard sessions and check again tomorrow`,
+    });
   }
   return out;
 }

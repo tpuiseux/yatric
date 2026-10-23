@@ -329,6 +329,13 @@
                       </li>
                     {/each}
                   </ul>
+                  {#if p.warnings?.length}
+                    <ul class="warnings" role="note">
+                      {#each p.warnings as w, i (i)}
+                        <li><span class="warn-icon">⚠</span> {w}</li>
+                      {/each}
+                    </ul>
+                  {/if}
                   <div class="proposal-actions">
                     {#if p.status === "pending"}
                       <button
@@ -621,6 +628,24 @@
     color: var(--text-muted);
     font-size: 0.76rem;
     margin-top: 0.15rem;
+  }
+
+  .proposal ul.warnings {
+    margin-top: 0.6rem;
+    padding: 0.5rem 0.6rem;
+    gap: 0.3rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+    background: var(--warning-bg);
+  }
+
+  .warnings li {
+    display: block;
+    font-size: 0.78rem;
+  }
+
+  .warn-icon {
+    color: var(--warning);
   }
 
   .proposal-actions {
