@@ -305,6 +305,85 @@ describe("coach turn", () => {
     });
   });
 
+  it("warns on the card about hard days back to back, and refuses one after a red morning", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-20T08:00:00+02:00"));
+    try {
+      const addTempo = (id: string) =>
+        reply("tool_use", [
+          {
+            type: "tool_use",
+            id,
+            name: "propose_plan_changes",
+            input: {
+              summary: "Second tempo",
+              changes: [
+                {
+                  op: "add",
+                  date: "2026-10-21",
+                  workout: {
+                    sport: "run",
+                    type: "tempo",
+                    name: "Tempo 2",
+                    durationMinutes: 40,
+                    structure: {
+                      main: [
+                        {
+                          type: "work",
+                          duration: { unit: "minutes", value: 40 },
+                          intensity: { unit: "rpe", value: 7 },
+                        },
+                      ],
+                    },
+                  },
+                  reason: "More work",
+                },
+              ],
+            },
+          },
+        ]);
+
+      api.replies.push(addTempo("g1"), reply("end_turn", [{ type: "text", text: "OK." }]));
+      const events = await turn("Add a tempo tomorrow");
+      const shown = events.find((e) => e.type === "proposal");
+      expect(shown?.type === "proposal" && shown.proposal.warnings).toEqual([
+        expect.stringMatching(
+          /"Tempo" and "Tempo 2" are hard sessions on 2026-10-20 and 2026-10-21/
+        ),
+      ]);
+      const result = (api.requests[1].messages as { content: Record<string, unknown>[] }[]).at(-1)!
+        .content[0];
+      expect(JSON.parse(result.content as string).guardrailWarnings).toMatch(/put an easy day/);
+
+      // HRV low and resting heart rate 9 bpm over the week: a red morning.
+      const { run } = await import("../../src/db/client.js");
+      for (let d = 12; d <= 20; d++) {
+        run(
+          "INSERT INTO daily_wellness (user_id, date, resting_hr, hrv_status) VALUES (?, ?, ?, ?)",
+          [userId, `2026-10-${d}`, d === 20 ? 57 : 48, d === 20 ? "LOW" : "BALANCED"]
+        );
+      }
+      api.replies.length = 0;
+      api.requests.length = 0;
+      api.replies.push(
+        addTempo("g2"),
+        reply("end_turn", [{ type: "text", text: "Rest instead." }])
+      );
+      const refused = await turn("Add a tempo tomorrow");
+      expect(refused.some((e) => e.type === "proposal")).toBe(false);
+      expect(
+        (api.requests[1].messages as { content: Record<string, unknown>[] }[]).at(-1)!.content[0]
+      ).toMatchObject({
+        is_error: true,
+        content: expect.stringMatching(
+          /"Tempo 2" is a hard session on 2026-10-21, right after a red morning/
+        ),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("starts a fresh conversation on request", async () => {
     const { conversationView, newConversation } =
       await import("../../src/lib/server/coach/store.js");

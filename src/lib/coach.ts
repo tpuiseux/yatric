@@ -55,6 +55,8 @@ export interface CoachProposal {
   id: number;
   summary: string;
   changes: ChangePreview[];
+  /** What the guardrails (lib/guardrails.ts) flag in the changed plan. */
+  warnings: string[];
   status: ProposalStatus;
   createdAt: string;
 }

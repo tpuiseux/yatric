@@ -3,6 +3,8 @@ import {
   buildLoadSeries,
   fatigueSignals,
   loadFromActivities,
+  morningRead,
+  redDays,
   type LoadDay,
   type WellnessRow,
 } from "../../src/lib/load.js";
@@ -125,5 +127,75 @@ describe("fatigueSignals", () => {
   it("needs three days in a row", () => {
     const days = dates(10).map((d, i) => day(d, { hrvStatus: i === 7 ? "BALANCED" : "LOW" }));
     expect(fatigueSignals(days)).toEqual([]);
+  });
+});
+
+describe("morningRead", () => {
+  const week = (rhr: (i: number) => number | null, hrv: (i: number) => string | null) =>
+    dates(10).map((d, i) => day(d, { restingHr: rhr(i), hrvStatus: hrv(i) }));
+
+  it("takes a single +5 on resting heart rate as noise", () => {
+    const days = week(
+      (i) => (i === 9 ? 53 : 48),
+      () => "BALANCED"
+    );
+    expect(morningRead(days, 9)).toMatchObject({
+      restingHrRise: 5,
+      restingHrUp: false,
+      red: false,
+    });
+    expect(fatigueSignals(days)).toEqual([]);
+  });
+
+  it("counts +5 two days running, or past +7, as up", () => {
+    expect(
+      morningRead(
+        week(
+          (i) => (i >= 8 ? 53 : 48),
+          () => "BALANCED"
+        ),
+        9
+      ).restingHrUp
+    ).toBe(true);
+    expect(
+      morningRead(
+        week(
+          (i) => (i === 9 ? 56 : 48),
+          () => "BALANCED"
+        ),
+        9
+      ).restingHrUp
+    ).toBe(true);
+  });
+
+  it("reads HRV low with resting HR up as red, and says why", () => {
+    const days = week(
+      (i) => (i === 9 ? 57 : 48),
+      (i) => (i === 9 ? "LOW" : "BALANCED")
+    );
+    expect(morningRead(days, 9)).toMatchObject({ hrvLow: true, restingHrUp: true, red: true });
+    expect(redDays(days)).toEqual([days[9].date]);
+    expect(fatigueSignals(days)).toEqual([
+      {
+        key: "restingHr",
+        text: "Resting heart rate up 9 bpm on the week before, with HRV low: more likely illness, heat, alcohol or dehydration than training - rest or keep it very easy",
+      },
+    ]);
+  });
+
+  it("reads HRV low with resting HR steady as stress, not illness", () => {
+    const days = week(
+      () => 48,
+      (i) => (i === 9 ? "LOW" : "BALANCED")
+    );
+    expect(morningRead(days, 9).red).toBe(false);
+    expect(fatigueSignals(days).map((s) => s.text)).toEqual([
+      "HRV low with resting heart rate steady: stress or short sleep rather than illness - easy running is fine, skip the intensity",
+    ]);
+  });
+
+  it("reads poor readiness as red", () => {
+    const days = dates(3).map((d, i) => day(d, { readiness: i === 2 ? 20 : 60 }));
+    expect(redDays(days)).toEqual([days[2].date]);
   });
 });

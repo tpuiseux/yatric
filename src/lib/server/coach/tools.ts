@@ -2,16 +2,18 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { all } from "../../../db/client.js";
 import type { TrainingPlan, TrainingWeek } from "../../../schema/training-plan.js";
 import { aerobicDecoupling, timeInZones } from "../../activityAnalysis.js";
+import { checkWeeks, newFindings } from "../../guardrails.js";
 import type { CoachProposal } from "../../coach.js";
 import { deriveSettingsFromPlan } from "../../settings.js";
 import { matchDay } from "../../trainingLog.js";
 import { getActivitiesByDate } from "../activities.js";
 import { getActivityDetails } from "../activityDetails.js";
 import { getFeedbackForPlan } from "../feedback.js";
+import { guardrailContext } from "../guardrails.js";
 import { loadPlanForUser } from "../plans.js";
 import { getRacePrediction } from "../racePrediction.js";
 import { isIsoDate, ValidationError } from "../validation.js";
-import { getWeekReviews, saveWeekNote } from "../weekReview.js";
+import { getWeekReviews, saveWeekNote, todayLocal } from "../weekReview.js";
 import { applyPlanChanges, parsePlanChanges } from "./changes.js";
 import { createProposal } from "./store.js";
 
@@ -393,7 +395,22 @@ function propose(ctx: ToolContext, input: Record<string, unknown>) {
   const changes = parsePlanChanges(input.changes);
   // Try them on a copy: a proposal the plan can't take goes back to the coach.
   const plan = requirePlan(ctx);
-  const preview = applyPlanChanges(structuredClone(plan), changes);
+  const changed = structuredClone(plan);
+  const preview = applyPlanChanges(changed, changes);
+
+  // The guardrails, on what this proposal adds: a block goes back to the
+  // coach, a warning goes on the card.
+  const weeks = plan.weeks ?? [];
+  const guard = guardrailContext(ctx.userId, weeks[0]?.startDate ?? todayLocal(), plan);
+  const found = newFindings(checkWeeks(weeks, guard), checkWeeks(changed.weeks ?? [], guard));
+  const blocks = found.filter((f) => f.severity === "block");
+  if (blocks.length) {
+    throw new ValidationError(
+      `${blocks.map((f) => f.text).join("; ")}. Propose an easy session or rest instead - if the athlete still wants it, they can move the session themselves in the plan.`
+    );
+  }
+  const warnings = found.map((f) => f.text);
+
   const proposal = createProposal(
     ctx.conversationId,
     ctx.messageId,
@@ -401,12 +418,16 @@ function propose(ctx: ToolContext, input: Record<string, unknown>) {
     ctx.planId,
     input.summary.trim(),
     changes,
-    preview
+    preview,
+    warnings
   );
   ctx.onProposal(proposal);
   return {
     proposalId: proposal.id,
     status: "shown to the athlete - not applied until they accept it",
+    guardrailWarnings: warnings.length
+      ? `${warnings.join("; ")}. These are on the card: tell the athlete in a sentence why the change is still worth it, or propose a better one.`
+      : undefined,
   };
 }
 

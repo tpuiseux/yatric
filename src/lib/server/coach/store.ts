@@ -82,6 +82,7 @@ interface ProposalRow {
 interface StoredChanges {
   changes: PlanChange[];
   preview: ChangePreview[];
+  warnings?: string[];
 }
 
 function toProposal(row: ProposalRow): CoachProposal {
@@ -90,6 +91,7 @@ function toProposal(row: ProposalRow): CoachProposal {
     id: row.id,
     summary: row.summary,
     changes: stored.preview,
+    warnings: stored.warnings ?? [],
     status: row.status,
     createdAt: row.created_at,
   };
@@ -102,12 +104,20 @@ export function createProposal(
   planId: string,
   summary: string,
   changes: PlanChange[],
-  preview: ChangePreview[]
+  preview: ChangePreview[],
+  warnings: string[] = []
 ): CoachProposal {
   const result = run(
     `INSERT INTO coach_proposals (conversation_id, message_id, user_id, plan_id, summary, changes)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [conversationId, messageId, userId, planId, summary, JSON.stringify({ changes, preview })]
+    [
+      conversationId,
+      messageId,
+      userId,
+      planId,
+      summary,
+      JSON.stringify({ changes, preview, warnings }),
+    ]
   );
   return getProposal(userId, planId, Number(result.lastInsertRowid))!.proposal;
 }
