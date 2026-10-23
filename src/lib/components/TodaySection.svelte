@@ -9,7 +9,7 @@
   import SessionBlock from "./SessionBlock.svelte";
   import RaceBib from "./RaceBib.svelte";
   import RacePrediction from "./RacePrediction.svelte";
-  import RecoverySignals from "./RecoverySignals.svelte";
+  import RecoveryStatus from "./RecoveryStatus.svelte";
 
   /**
    * The top of the plan, the question the app is opened for: what's on
@@ -24,6 +24,7 @@
     recoveryDays: LoadDay[];
     onWorkoutClick: (workout: Workout, day: TrainingDay) => void;
     onAskCoach: (text: string) => void;
+    onOpenRecovery: () => void;
   }
 
   let {
@@ -35,6 +36,7 @@
     recoveryDays,
     onWorkoutClick,
     onAskCoach,
+    onOpenRecovery,
   }: Props = $props();
 
   const i18n = getI18n();
@@ -71,25 +73,25 @@
   const firstDate = $derived(plan.weeks?.[0]?.startDate ?? "");
 </script>
 
-<section class="today">
-  <div class="now">
-    <span class="small muted">{m.today.heading(fmt.date(today, "long"))}</span>
+<section class="today" aria-label={m.today.title}>
+  <div class="cell now">
+    <span class="small muted first-cap">{m.today.heading(fmt.date(today, "long"))}</span>
     {#if !todayDay}
       <span class="figure-l">{m.today.rest}</span>
-      <p>
+      <span class="small muted">
         {today < firstDate
           ? m.today.beforePlan(fmt.date(firstDate, "dayMonth"))
           : m.today.afterPlan}
-      </p>
+      </span>
     {:else if sessions.length === 0}
       <span class="figure-l">{m.today.rest}</span>
       {#if restNotes.some((w) => !GENERIC_REST.test(w.name ?? ""))}
-        <p class="muted">
+        <span class="small muted">
           {restNotes
             .map((w) => w.name)
             .filter((n) => !GENERIC_REST.test(n ?? ""))
             .join(", ")}
-        </p>
+        </span>
       {/if}
     {:else}
       <div class="sessions">
@@ -107,80 +109,115 @@
     {/if}
     {#if next}
       <button class="next" onclick={() => onWorkoutClick(next.workout, next.day)}>
-        {m.today.next(
-          when(next.day.date),
-          [next.workout.name, fmt.duration(next.workout.durationMinutes)].filter(Boolean).join(", ")
-        )}
+        <span class="muted">{when(next.day.date)}</span>
+        <span>{next.workout.name}</span>
+        {#if next.workout.durationMinutes}<span class="muted num"
+            >{fmt.duration(next.workout.durationMinutes)}</span
+          >{/if}
       </button>
     {/if}
   </div>
 
-  <RaceBib {plan} />
+  <div class="cell bib">
+    <RaceBib {plan} compact />
+  </div>
 
   {#if prediction}
-    <RacePrediction {prediction} {settings} compact />
+    <div class="cell">
+      <RacePrediction {prediction} {settings} compact />
+    </div>
   {/if}
 
-  <div class="signals">
-    <RecoverySignals days={recoveryDays} {onAskCoach} />
+  <div class="cell">
+    <RecoveryStatus days={recoveryDays} onDetails={onOpenRecovery} {onAskCoach} />
   </div>
 </section>
 
 <style>
   .today {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(200px, 240px) minmax(180px, 240px);
-    gap: var(--space-6) var(--space-8);
-    align-items: start;
+    grid-template-columns: minmax(0, 1.5fr) minmax(170px, 0.9fr) minmax(0, 1fr) minmax(0, 1fr);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    background: var(--sheet);
   }
-  .now {
+  .cell {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-3);
+    gap: var(--space-2);
     min-width: 0;
+    padding: var(--space-6);
+  }
+  .cell + .cell {
+    border-left: 1px solid var(--line);
+  }
+  .bib {
+    padding: var(--space-4);
+  }
+  .now {
+    align-items: flex-start;
+  }
+  .first-cap::first-letter {
+    text-transform: uppercase;
   }
   .sessions {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
     width: 100%;
-    max-width: 420px;
   }
   .next {
-    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--space-2);
+    margin-top: auto;
+    padding: var(--space-2) 0 0;
     border: 0;
     background: none;
     font: inherit;
+    font-size: 14px;
     text-align: left;
     color: var(--ink);
+  }
+  .next:hover span:nth-child(2) {
     text-decoration: underline;
-    text-decoration-color: var(--line-strong);
     text-underline-offset: 3px;
-  }
-  .next:hover {
-    text-decoration-color: var(--ink);
-  }
-  .signals {
-    grid-column: 1 / -1;
-  }
-  .signals:empty {
-    display: none;
   }
 
   @media (max-width: 1100px) {
     .today {
-      grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .cell + .cell {
+      border-left: 0;
+    }
+    .cell:nth-child(n + 3) {
+      border-top: 1px solid var(--line);
+    }
+    .cell:nth-child(even) {
+      border-left: 1px solid var(--line);
     }
   }
   @media (max-width: 640px) {
-    .today {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: var(--space-4);
+    .cell {
+      padding: var(--space-4);
     }
-    .now,
-    .signals {
+    .now {
       grid-column: 1 / -1;
+      border-bottom: 1px solid var(--line);
+    }
+    .cell:nth-child(n + 3) {
+      border-top: 0;
+    }
+    .cell:nth-child(even) {
+      border-left: 0;
+    }
+    .cell:nth-child(3) {
+      border-left: 1px solid var(--line);
+    }
+    .cell:nth-child(4) {
+      grid-column: 1 / -1;
+      border-top: 1px solid var(--line);
     }
   }
 </style>

@@ -86,6 +86,7 @@ export const fr: Messages = {
 
   today: {
     heading: (date: string) => `Aujourd'hui, ${date}`,
+    title: "Aujourd'hui",
     rest: "Repos",
     restDay: "Rien de prévu aujourd'hui.",
     tomorrow: "Demain",
@@ -101,6 +102,9 @@ export const fr: Messages = {
     behind: (gap: string) => `encore ${gap} à gagner`,
     ahead: (gap: string) => `${gap} d'avance`,
     onTarget: "dans l'objectif",
+    gapBehind: (gap: string) => `+${gap} sur l'objectif`,
+    gapAhead: (gap: string) => `−${gap} sous l'objectif`,
+    gapOnTarget: "Dans l'objectif",
     faster: (gap: string, since: string) => `${gap} de mieux depuis le ${since}`,
     slower: (gap: string, since: string) => `${gap} de moins bien depuis le ${since}`,
     steady: (since: string) => `Stable depuis le ${since}`,
@@ -154,6 +158,11 @@ export const fr: Messages = {
       advice: "Reporte les séances dures et regarde à nouveau demain matin.",
     }),
     askCoach: "En parler au coach",
+    morning: "Récup ce matin",
+    status: { ok: "Bonne", warn: "À surveiller", red: "Repos conseillé", none: "Pas de données" },
+    andMore: (n: number) => `et ${n} ${plural(n, "autre", "autres")}`,
+    details: "Détails",
+    allClear: "Rien à signaler.",
     coachMessage: (list: string) =>
       `Mes données de récupération montrent : ${list}. Est-ce que je dois changer quelque chose ces prochains jours ?`,
   },
@@ -186,6 +195,13 @@ export const fr: Messages = {
     coachNote: "Note du coach",
     focus: "Priorité",
     review: "Faire le bilan avec le coach",
+    stats: {
+      sessions: "Séances",
+      run: "Course",
+      easy: "Footings",
+      effort: "Effort",
+      sleep: "Sommeil",
+    },
     reviewMessage: (week: number, start: string, end: string) =>
       `Faisons le bilan de la semaine ${week} (du ${start} au ${end}).`,
     today: "Aujourd'hui",

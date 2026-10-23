@@ -1,7 +1,8 @@
 /*
  * Yatric's design system, from the "Yatric" design system artifact
- * (tokens.json + components/bundle.css): the race-bib direction. Light by
- * default; dark on request, or following the system with data-theme="system".
+ * (tokens.json + components/bundle.css): the race-bib direction. Dark by
+ * default (lib/preferences.ts); light on request, or following the system
+ * with data-theme="system".
  */
 @import "@fontsource-variable/archivo/wdth.css";
 

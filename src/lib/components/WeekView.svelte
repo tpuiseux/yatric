@@ -232,36 +232,57 @@
 
     {#if review}
       <div class="review">
-        <ul class="facts">
-          <li>{m.week.sessions(review.sessions.done, review.sessions.planned)}</li>
+        <dl class="stats">
+          <div>
+            <dt>{m.week.stats.sessions}</dt>
+            <dd>
+              {review.sessions.done}<span class="of">/{review.sessions.planned}</span>
+            </dd>
+          </div>
           {#if review.runKm.actual > 0 || review.runKm.planned}
-            <li>
-              {m.week.runDistance(
-                distance(review.runKm.actual * 1000, "run", settings, fmt) || "0 km",
-                review.runKm.planned
-                  ? distance(review.runKm.planned * 1000, "run", settings, fmt)
-                  : null
-              )}
-            </li>
+            <div>
+              <dt>{m.week.stats.run}</dt>
+              <dd>
+                {distance(review.runKm.actual * 1000, "run", settings, fmt) ||
+                  "0"}{#if review.runKm.planned}<span class="of"
+                    >/{distance(review.runKm.planned * 1000, "run", settings, fmt)}</span
+                  >{/if}
+              </dd>
+            </div>
           {/if}
           {#if review.easyRuns?.pace}
-            <li>
-              {m.week.easyRuns(
-                formatSpeed(1000 / review.easyRuns.pace, speedDisplay("run", settings)),
-                review.easyRuns.heartrate ? Math.round(review.easyRuns.heartrate) : null
-              )}
-            </li>
+            <div>
+              <dt>{m.week.stats.easy}</dt>
+              <dd>
+                {formatSpeed(
+                  1000 / review.easyRuns.pace,
+                  speedDisplay("run", settings)
+                )}{#if review.easyRuns.heartrate}<span class="of">
+                    · {Math.round(review.easyRuns.heartrate)} bpm</span
+                  >{/if}
+              </dd>
+            </div>
           {/if}
           {#if review.feedback.averageRpe}
-            <li>{m.week.rpe(fmt.number(review.feedback.averageRpe, 1))}</li>
+            <div>
+              <dt>{m.week.stats.effort}</dt>
+              <dd>{fmt.number(review.feedback.averageRpe, 1)}<span class="of">/10</span></dd>
+            </div>
           {/if}
           {#if review.recovery?.sleepScore}
-            <li>{m.week.sleep(Math.round(review.recovery.sleepScore))}</li>
+            <div>
+              <dt>{m.week.stats.sleep}</dt>
+              <dd>{Math.round(review.recovery.sleepScore)}</dd>
+            </div>
           {/if}
-          {#each review.flags as f (f.code)}
-            <li class="flag" class:warning={f.level === "warning"}>{flagText(f)}</li>
-          {/each}
-        </ul>
+        </dl>
+        {#if review.flags.length}
+          <ul class="flags">
+            {#each review.flags as f (f.code)}
+              <li class:warning={f.level === "warning"}>{flagText(f)}</li>
+            {/each}
+          </ul>
+        {/if}
         <div class="review-actions">
           {#if review.coachNote}
             <button
@@ -367,18 +388,57 @@
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
   }
-  .facts {
+  .stats {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-1) var(--space-4);
-    list-style: none;
-    font-size: 13px;
-    line-height: 18px;
+    gap: var(--space-3) 0;
+  }
+  .stats div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 var(--space-6);
+    border-left: 1px solid var(--line);
+  }
+  .stats div:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .stats dt {
+    font-size: 12px;
+    line-height: 16px;
     color: var(--ink-muted);
   }
-  .flag.warning {
-    color: var(--warning);
+  .stats dd {
+    font-size: 18px;
+    line-height: 22px;
+    font-weight: 700;
+    font-variation-settings: "wdth" 80;
+    font-variant-numeric: tabular-nums;
+  }
+  .of {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-muted);
+  }
+  .flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    list-style: none;
+  }
+  .flags li {
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--sunk);
+    font-size: 12px;
+    line-height: 18px;
     font-weight: 600;
+    color: var(--ink-muted);
+  }
+  .flags li.warning {
+    background: var(--warning-soft);
+    color: var(--warning);
   }
   .review-actions {
     display: flex;
@@ -487,6 +547,18 @@
     border-color: var(--line-strong);
   }
 
+  @media (max-width: 640px) {
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-3) var(--space-4);
+      width: 100%;
+    }
+    .stats div {
+      padding: 0;
+      border-left: 0;
+    }
+  }
   @media (max-width: 900px) {
     .grid {
       display: none;

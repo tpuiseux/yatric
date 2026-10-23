@@ -41,10 +41,10 @@
 
 {#if signals.length > 0}
   <div class="signals" role="status">
-    {#each signals as s, i (s.key)}
+    {#each signals as s (s.key)}
       {@const w = words(s)}
-      <div class="signal" class:red={s.level === "red"}>
-        <span class="signal-icon">
+      <div class="row" class:red={s.level === "red"}>
+        <span class="icon">
           {#if s.level === "red"}
             <svg viewBox="0 0 24 24" aria-hidden="true"
               ><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></svg
@@ -58,14 +58,12 @@
           {/if}
         </span>
         <div>
-          <div class="signal-title">{w.title}</div>
-          <div>{w.advice}</div>
+          <div class="title">{w.title}</div>
+          <div class="muted">{w.advice}</div>
         </div>
-        {#if i === signals.length - 1}
-          <button class="btn btn-sm" onclick={ask}>{m.signals.askCoach}</button>
-        {/if}
       </div>
     {/each}
+    <div><button class="btn btn-sm" onclick={ask}>{m.signals.askCoach}</button></div>
   </div>
 {/if}
 
@@ -73,7 +71,24 @@
   .signals {
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-3);
+    max-width: 70ch;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+  .icon {
+    display: flex;
+    padding-top: 2px;
+    color: var(--warning);
+  }
+  .red .icon {
+    color: var(--danger);
+  }
+  .title {
+    font-weight: 650;
   }
   svg {
     width: 18px;

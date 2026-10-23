@@ -49,7 +49,7 @@
   }
 
   // Language and theme belong to this browser, not the plan (routes/preferences).
-  let theme = $state<Theme>(untrack(() => (page.data.theme as Theme) ?? "light"));
+  let theme = $state<Theme>(untrack(() => (page.data.theme as Theme) ?? "dark"));
 
   async function savePreference(body: { lang?: Locale; theme?: Theme }) {
     await fetch(`${base}/preferences`, {

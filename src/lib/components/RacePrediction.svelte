@@ -47,6 +47,20 @@
       : { text: m.prediction.slower(gap, since), good: false };
   });
 
+  /** "Goal 3:12:00 (4:33/km): 9:41 still to find". */
+  const goalLine = $derived.by(() => {
+    if (goal === null || seconds === null) return "";
+    return m.prediction.goal(
+      formatClock(goal),
+      formatSpeed(distance / goal, display),
+      Math.abs(seconds - goal) < 30
+        ? m.prediction.onTarget
+        : seconds > goal
+          ? m.prediction.behind(formatClock(seconds - goal))
+          : m.prediction.ahead(formatClock(goal - seconds))
+    );
+  });
+
   function estimateDetail(e: Estimate): string {
     switch (e.kind) {
       case "effort":
@@ -105,25 +119,38 @@
   {#if seconds === null}
     <p class="empty">{m.prediction.empty}</p>
   {:else}
-    <span class={compact ? "figure-l" : "figure-l big"}>{formatClock(seconds)}</span>
-    <span class="label">{m.prediction.pace(formatSpeed(distance / seconds, display))}</span>
-    {#if trendText}
-      <span class="trend" class:good={trendText.good === true} class:bad={trendText.good === false}
-        >{trendText.text}</span
-      >
-    {/if}
-    {#if goal !== null}
-      <span class="label">
-        {m.prediction.goal(
-          formatClock(goal),
-          formatSpeed(distance / goal, display),
-          Math.abs(seconds - goal) < 30
-            ? m.prediction.onTarget
-            : seconds > goal
-              ? m.prediction.behind(formatClock(seconds - goal))
-              : m.prediction.ahead(formatClock(goal - seconds))
-        )}
+    {#if compact}
+      <span class="figure-l">{formatClock(seconds)}</span>
+      <span class="meta">
+        <span class="small muted num">{formatSpeed(distance / seconds, display)}</span>
+        {#if goal !== null}
+          <span
+            class="chip-gap"
+            class:behind={seconds - goal >= 30}
+            class:ahead={goal - seconds >= 30}
+            title={goalLine}
+          >
+            {Math.abs(seconds - goal) < 30
+              ? m.prediction.gapOnTarget
+              : seconds > goal
+                ? m.prediction.gapBehind(formatClock(seconds - goal))
+                : m.prediction.gapAhead(formatClock(goal - seconds))}
+          </span>
+        {/if}
       </span>
+    {:else}
+      <span class="figure-l big">{formatClock(seconds)}</span>
+      <span class="label">{m.prediction.pace(formatSpeed(distance / seconds, display))}</span>
+      {#if trendText}
+        <span
+          class="trend"
+          class:good={trendText.good === true}
+          class:bad={trendText.good === false}>{trendText.text}</span
+        >
+      {/if}
+      {#if goal !== null}
+        <span class="label">{goalLine}</span>
+      {/if}
     {/if}
 
     {#if !compact}
@@ -195,6 +222,31 @@
     font-size: 13px;
     line-height: 18px;
     color: var(--ink-muted);
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    margin-top: var(--space-1);
+  }
+  .chip-gap {
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--sunk);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 650;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip-gap.behind {
+    background: var(--warning-soft);
+    color: var(--warning);
+  }
+  .chip-gap.ahead {
+    background: var(--success-soft);
+    color: var(--success);
   }
   .trend {
     font-size: 13px;

@@ -7,7 +7,7 @@ export function isTheme(value: unknown): value is Theme {
   return value === "light" || value === "dark" || value === "system";
 }
 
-/** Light unless the athlete chose otherwise. */
+/** Dark unless the athlete chose otherwise. */
 export function resolveTheme(cookie: string | undefined): Theme {
-  return isTheme(cookie) ? cookie : "light";
+  return isTheme(cookie) ? cookie : "dark";
 }

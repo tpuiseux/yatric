@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { LoadDay, LoadSeries } from "../load.js";
   import { getI18n } from "../i18n/index.js";
 
@@ -9,9 +10,11 @@
   interface Props {
     load: LoadSeries;
     planStartDate: string;
+    /** Shown under the title: what this morning's data says. */
+    children?: Snippet;
   }
 
-  let { load, planStartDate }: Props = $props();
+  let { load, planStartDate, children }: Props = $props();
 
   const i18n = getI18n();
   const m = $derived(i18n.m);
@@ -289,6 +292,7 @@
 
 <section class="load-panel" aria-label={m.recovery.title}>
   <h2 class="title-m">{m.recovery.title}</h2>
+  {@render children?.()}
   {#if tiles.length > 0}
     <div class="tiles">
       {#each tiles as tile (tile.label)}

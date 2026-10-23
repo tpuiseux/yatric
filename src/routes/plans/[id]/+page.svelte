@@ -21,6 +21,7 @@
   import SettingsModal from "$lib/components/SettingsModal.svelte";
   import CoachPanel from "$lib/components/CoachPanel.svelte";
   import LoadPanel from "$lib/components/LoadPanel.svelte";
+  import RecoverySignals from "$lib/components/RecoverySignals.svelte";
   import { getI18n } from "$lib/i18n/index.js";
   import { getTodayISO } from "$lib/utils.js";
   import { runSync } from "$lib/garminSyncClient.js";
@@ -280,6 +281,7 @@
         recoveryDays={data.load?.days ?? []}
         onWorkoutClick={handleWorkoutClick}
         onAskCoach={askCoach}
+        onOpenRecovery={() => (view = "recovery")}
       />
       <WeekView
         plan={data.plan}
@@ -343,7 +345,9 @@
         {/if}
       </section>
     {:else if data.load}
-      <LoadPanel load={data.load} planStartDate={data.plan.meta.planStartDate} />
+      <LoadPanel load={data.load} planStartDate={data.plan.meta.planStartDate}>
+        <RecoverySignals days={data.load.days} onAskCoach={askCoach} />
+      </LoadPanel>
     {:else}
       <section class="plan-view">
         <h2 class="title-m">{m.recovery.title}</h2>

@@ -91,6 +91,7 @@ export const en = {
 
   today: {
     heading: (date: string) => `Today, ${date}`,
+    title: "Today",
     rest: "Rest",
     restDay: "Nothing planned today.",
     tomorrow: "Tomorrow",
@@ -107,6 +108,10 @@ export const en = {
     behind: (gap: string) => `${gap} still to find`,
     ahead: (gap: string) => `${gap} ahead`,
     onTarget: "on target",
+    /** The compact chip: the gap to the goal. */
+    gapBehind: (gap: string) => `+${gap} on the goal`,
+    gapAhead: (gap: string) => `−${gap} under the goal`,
+    gapOnTarget: "On the goal",
     faster: (gap: string, since: string) => `${gap} faster since ${since}`,
     slower: (gap: string, since: string) => `${gap} slower since ${since}`,
     steady: (since: string) => `Steady since ${since}`,
@@ -160,6 +165,11 @@ export const en = {
       advice: "Hold off hard sessions and check again tomorrow.",
     }),
     askCoach: "Ask the coach",
+    morning: "Recovery this morning",
+    status: { ok: "Good", warn: "Watch it", red: "Rest advised", none: "No data yet" },
+    andMore: (n: number) => `and ${n} more`,
+    details: "Details",
+    allClear: "Nothing worth flagging.",
     coachMessage: (list: string) =>
       `My recovery data shows: ${list}. Should I change anything in the coming days?`,
   },
@@ -192,6 +202,13 @@ export const en = {
     coachNote: "Coach's note",
     focus: "Focus",
     review: "Review with the coach",
+    stats: {
+      sessions: "Sessions",
+      run: "Running",
+      easy: "Easy runs",
+      effort: "Effort",
+      sleep: "Sleep",
+    },
     reviewMessage: (week: number, start: string, end: string) =>
       `Let's go over week ${week} (${start} to ${end}).`,
     today: "Today",

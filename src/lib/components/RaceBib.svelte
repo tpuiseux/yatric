@@ -6,9 +6,11 @@
   /** The countdown to the race, drawn as a race bib: a band, four pins, the days. */
   interface Props {
     plan: TrainingPlan;
+    /** Smaller, with the race date alone underneath (the bar says the week). */
+    compact?: boolean;
   }
 
-  let { plan }: Props = $props();
+  let { plan, compact = false }: Props = $props();
 
   const i18n = getI18n();
   const m = $derived(i18n.m);
@@ -26,12 +28,12 @@
   const total = $derived(plan.meta?.totalWeeks ?? weeks.length);
 </script>
 
-<div class="bib">
+<div class="bib" class:compact>
   <span class="pins" aria-hidden="true"></span>
   <span class="race">{plan.meta?.event}</span>
   {#if days > 0}
     <span class="count">
-      <span class="figure-xl">{days}</span>
+      <span class={compact ? "figure-l" : "figure-xl"}>{days}</span>
       <span class="unit">{m.bib.days(days)}</span>
     </span>
   {:else}
@@ -40,11 +42,15 @@
     >
   {/if}
   <span class="foot">
-    {fmt.date(raceDate, "full")}
-    {#if current}<br />{m.bib.weekOf(current.weekNumber, total)}
-    {:else if weeks[0] && today < weeks[0].startDate}<br />{m.bib.startsOn(
-        fmt.date(weeks[0].startDate, "dayMonth")
-      )}{/if}
+    {#if compact}
+      {fmt.date(raceDate, "short")}
+    {:else}
+      {fmt.date(raceDate, "full")}
+      {#if current}<br />{m.bib.weekOf(current.weekNumber, total)}
+      {:else if weeks[0] && today < weeks[0].startDate}<br />{m.bib.startsOn(
+          fmt.date(weeks[0].startDate, "dayMonth")
+        )}{/if}
+    {/if}
   </span>
 </div>
 
@@ -89,6 +95,11 @@
   .pins::after {
     bottom: 8px;
     right: 10px;
+  }
+  .compact {
+    gap: var(--space-1);
+    padding: var(--space-4) var(--space-4) var(--space-3);
+    border-top-width: 6px;
   }
   .race {
     font-size: 13px;
