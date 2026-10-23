@@ -124,6 +124,16 @@ export function updatePlanSettings(
   update: { preferences: UnitPreferences; zones: AthleteZones }
 ): TrainingPlan {
   plan.preferences = update.preferences;
+  // Settings only edit the zones themselves. What the coach wrote beside
+  // the run paces - the goal time the race prediction reads, its reasoning -
+  // stays.
+  const oldPace = plan.zones?.run?.pace as unknown as Record<string, unknown> | undefined;
+  const newPace = update.zones.run?.pace as unknown as Record<string, unknown> | undefined;
+  if (oldPace && newPace) {
+    for (const [key, value] of Object.entries(oldPace)) {
+      if (!(key in newPace)) newPace[key] = value;
+    }
+  }
   plan.zones = update.zones;
   plan.meta.updatedAt = new Date().toISOString();
   return plan;

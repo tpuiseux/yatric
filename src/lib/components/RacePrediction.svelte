@@ -106,16 +106,25 @@
     <p class="empty">{m.prediction.empty}</p>
   {:else}
     <span class={compact ? "figure-l" : "figure-l big"}>{formatClock(seconds)}</span>
+    <span class="label">{m.prediction.pace(formatSpeed(distance / seconds, display))}</span>
     {#if trendText}
       <span class="trend" class:good={trendText.good === true} class:bad={trendText.good === false}
         >{trendText.text}</span
       >
     {/if}
-    <span class="label">
-      {goal !== null ? `${m.prediction.goal(formatClock(goal))}, ` : ""}{m.prediction.pace(
-        formatSpeed(distance / seconds, display)
-      )}
-    </span>
+    {#if goal !== null}
+      <span class="label">
+        {m.prediction.goal(
+          formatClock(goal),
+          formatSpeed(distance / goal, display),
+          Math.abs(seconds - goal) < 30
+            ? m.prediction.onTarget
+            : seconds > goal
+              ? m.prediction.behind(formatClock(seconds - goal))
+              : m.prediction.ahead(formatClock(goal - seconds))
+        )}
+      </span>
+    {/if}
 
     {#if !compact}
       {#if chart}

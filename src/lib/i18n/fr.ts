@@ -96,9 +96,11 @@ export const fr: Messages = {
 
   prediction: {
     label: "Chrono prédit",
-    goal: (time: string) => `Objectif ${time}`,
-    pace: (pace: string) => `allure ${pace}`,
-    onTarget: "Dans l'objectif",
+    pace: (pace: string) => `Soit ${pace}`,
+    goal: (time: string, pace: string, status: string) => `Objectif ${time} (${pace}) : ${status}`,
+    behind: (gap: string) => `encore ${gap} à gagner`,
+    ahead: (gap: string) => `${gap} d'avance`,
+    onTarget: "dans l'objectif",
     faster: (gap: string, since: string) => `${gap} de mieux depuis le ${since}`,
     slower: (gap: string, since: string) => `${gap} de moins bien depuis le ${since}`,
     steady: (since: string) => `Stable depuis le ${since}`,

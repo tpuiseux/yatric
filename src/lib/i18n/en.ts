@@ -101,9 +101,12 @@ export const en = {
 
   prediction: {
     label: "Predicted time",
-    goal: (time: string) => `Goal ${time}`,
-    pace: (pace: string) => `pace ${pace}`,
-    onTarget: "On target",
+    /** The predicted time's own pace, under it. */
+    pace: (pace: string) => `That's ${pace}`,
+    goal: (time: string, pace: string, status: string) => `Goal ${time} (${pace}): ${status}`,
+    behind: (gap: string) => `${gap} still to find`,
+    ahead: (gap: string) => `${gap} ahead`,
+    onTarget: "on target",
     faster: (gap: string, since: string) => `${gap} faster since ${since}`,
     slower: (gap: string, since: string) => `${gap} slower since ${since}`,
     steady: (since: string) => `Steady since ${since}`,

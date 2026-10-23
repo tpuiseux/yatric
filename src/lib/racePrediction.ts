@@ -165,7 +165,9 @@ export function raceTarget(plan: TrainingPlan): RaceTarget | null {
   let goalSeconds = typeof goalTime === "string" ? parseClock(goalTime) : null;
   if (goalSeconds === null && pacing?.targetPace) {
     const pace = parsePacePerKm(pacing.targetPace);
-    if (pace) goalSeconds = Math.round((pace * distanceMeters) / 1000);
+    // A race pace is itself rounded to the second (4:33/km is a 3:12:00
+    // marathon, not 3:11:59): the goal it implies, to the minute.
+    if (pace) goalSeconds = Math.round((pace * distanceMeters) / 1000 / 60) * 60;
   }
 
   let raceHr: number | null = null;
