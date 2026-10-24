@@ -25,6 +25,7 @@
     flex-direction: column;
     gap: var(--space-6);
     max-width: 560px;
+    margin-inline: auto;
     padding: var(--space-12) var(--space-8);
   }
   .home {

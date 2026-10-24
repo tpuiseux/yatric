@@ -112,7 +112,8 @@
     align-items: center;
     gap: var(--space-6);
     min-height: 56px;
-    padding: 0 var(--space-8);
+    /* Lined up with the page's centred content (routes/plans/[id]). */
+    padding: 0 max(var(--space-8), calc((100% - 1280px) / 2 + var(--space-8)));
     border-bottom: 1px solid var(--line);
     background: var(--paper);
   }

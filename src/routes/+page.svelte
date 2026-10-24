@@ -148,7 +148,7 @@
     justify-content: space-between;
     gap: var(--space-4);
     min-height: 56px;
-    padding: 0 var(--space-8);
+    padding: 0 max(var(--space-8), calc((100% - 880px) / 2 + var(--space-8)));
     border-bottom: 1px solid var(--line);
   }
   .bar form {
@@ -169,6 +169,7 @@
     flex-direction: column;
     gap: var(--space-8);
     max-width: 880px;
+    margin-inline: auto;
     padding: var(--space-12) var(--space-8);
   }
   .head {

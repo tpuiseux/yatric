@@ -420,6 +420,7 @@
     gap: var(--space-12);
     width: 100%;
     max-width: 1280px;
+    margin-inline: auto;
     min-width: 0;
     padding: var(--space-8) var(--space-8) var(--space-12);
   }
