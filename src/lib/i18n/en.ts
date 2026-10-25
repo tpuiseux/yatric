@@ -94,8 +94,6 @@ export const en = {
     title: "Today",
     rest: "Rest",
     restDay: "Nothing planned today.",
-    tomorrow: "Tomorrow",
-    next: (when: string, what: string) => `${when}: ${what}.`,
     beforePlan: (date: string) => `The plan starts on ${date}.`,
     afterPlan: "Race day is behind you.",
   },

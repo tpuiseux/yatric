@@ -50,23 +50,6 @@
   const restNotes = $derived((todayDay?.workouts ?? []).filter((w) => w.sport === "rest"));
   const recorded = $derived(matchDay(todayDay?.workouts ?? [], activitiesByDate[today] ?? []));
 
-  // The next session that isn't rest, after today.
-  const next = $derived.by(() => {
-    for (const day of days) {
-      if (day.date <= today) continue;
-      const workout = day.workouts?.find((w) => w.sport !== "rest");
-      if (workout) return { day, workout };
-    }
-    return null;
-  });
-
-  function when(iso: string): string {
-    const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 864e5).toISOString().slice(0, 10);
-    if (iso === tomorrow) return m.today.tomorrow;
-    const d = fmt.date(iso, "weekdayLong");
-    return d.charAt(0).toUpperCase() + d.slice(1);
-  }
-
   /** A rest day's own name only says something if it isn't just "rest". */
   const GENERIC_REST = /^\s*(rest|repos)(\s+day)?\s*$/i;
 
@@ -106,15 +89,6 @@
           />
         {/each}
       </div>
-    {/if}
-    {#if next}
-      <button class="next" onclick={() => onWorkoutClick(next.workout, next.day)}>
-        <span class="muted">{when(next.day.date)}</span>
-        <span>{next.workout.name}</span>
-        {#if next.workout.durationMinutes}<span class="muted num"
-            >{fmt.duration(next.workout.durationMinutes)}</span
-          >{/if}
-      </button>
     {/if}
   </div>
 
@@ -165,23 +139,6 @@
     flex-direction: column;
     gap: var(--space-2);
     width: 100%;
-  }
-  .next {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 var(--space-2);
-    margin-top: auto;
-    padding: var(--space-2) 0 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    font-size: 14px;
-    text-align: left;
-    color: var(--ink);
-  }
-  .next:hover span:nth-child(2) {
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
 
   @media (max-width: 1100px) {

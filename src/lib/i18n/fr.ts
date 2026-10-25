@@ -89,8 +89,6 @@ export const fr: Messages = {
     title: "Aujourd'hui",
     rest: "Repos",
     restDay: "Rien de prévu aujourd'hui.",
-    tomorrow: "Demain",
-    next: (when: string, what: string) => `${when} : ${what}.`,
     beforePlan: (date: string) => `Le plan commence le ${date}.`,
     afterPlan: "La course est derrière toi.",
   },
