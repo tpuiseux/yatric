@@ -1,5 +1,5 @@
 import type { Settings } from "./settings.js";
-import type { Sport } from "../schema/training-plan.js";
+import type { Sport, Workout } from "../schema/training-plan.js";
 import { activitySport, type RecordedActivity } from "./trainingLog.js";
 
 const METERS_PER_YARD = 0.9144;
@@ -154,4 +154,21 @@ export function formatRelativeTime(iso: string, now = Date.now()): string {
   if (hours < 24) return `${hours} h ago`;
   const days = Math.round(hours / 24);
   return `${days} day${days > 1 ? "s" : ""} ago`;
+}
+
+const GENERIC_REST = /^\s*(rest|rest day|day off|off|repos|jour de repos)\s*$/i;
+
+/**
+ * A rest "workout" that only says the day is a rest day - not one that
+ * names something to do (a "Badminton (Cross-Training)" filed under rest).
+ * It means nothing on a day that also has a session.
+ */
+export function isRestPlaceholder(w: Pick<Workout, "sport" | "name">): boolean {
+  return w.sport === "rest" && GENERIC_REST.test(w.name ?? "");
+}
+
+/** The day's workouts as shown: rest placeholders dropped when a session is planned. */
+export function visibleWorkouts(workouts: Workout[]): Workout[] {
+  const hasSession = workouts.some((w) => w.sport !== "rest");
+  return hasSession ? workouts.filter((w) => !isRestPlaceholder(w)) : workouts;
 }

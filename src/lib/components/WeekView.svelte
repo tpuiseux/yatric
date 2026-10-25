@@ -11,7 +11,7 @@
   import { formatSpeed, speedDisplay } from "../activityAnalysis.js";
   import { getI18n } from "../i18n/index.js";
   import { activityParts, distance } from "../format.js";
-  import { getTodayISO } from "../utils.js";
+  import { getTodayISO, visibleWorkouts } from "../utils.js";
   import SessionBlock from "./SessionBlock.svelte";
 
   /**
@@ -149,7 +149,7 @@
       {/if}
     </div>
     <div class="sessions">
-      {#each d.workouts ?? [] as workout (workout.id)}
+      {#each visibleWorkouts(d.workouts ?? []) as workout (workout.id)}
         <SessionBlock
           {workout}
           feedback={feedback[workout.id]}

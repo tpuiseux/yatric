@@ -5,7 +5,7 @@
   import type { Settings } from "../settings.js";
   import type { LoadDay } from "../load.js";
   import { getI18n } from "../i18n/index.js";
-  import { getTodayISO } from "../utils.js";
+  import { getTodayISO, isRestPlaceholder } from "../utils.js";
   import SessionBlock from "./SessionBlock.svelte";
   import RaceBib from "./RaceBib.svelte";
   import RacePrediction from "./RacePrediction.svelte";
@@ -50,9 +50,6 @@
   const restNotes = $derived((todayDay?.workouts ?? []).filter((w) => w.sport === "rest"));
   const recorded = $derived(matchDay(todayDay?.workouts ?? [], activitiesByDate[today] ?? []));
 
-  /** A rest day's own name only says something if it isn't just "rest". */
-  const GENERIC_REST = /^\s*(rest|repos)(\s+day)?\s*$/i;
-
   const firstDate = $derived(plan.weeks?.[0]?.startDate ?? "");
 </script>
 
@@ -68,11 +65,11 @@
       </span>
     {:else if sessions.length === 0}
       <span class="figure-l">{m.today.rest}</span>
-      {#if restNotes.some((w) => !GENERIC_REST.test(w.name ?? ""))}
+      {#if restNotes.some((w) => !isRestPlaceholder(w))}
         <span class="small muted">
           {restNotes
+            .filter((w) => !isRestPlaceholder(w))
             .map((w) => w.name)
-            .filter((n) => !GENERIC_REST.test(n ?? ""))
             .join(", ")}
         </span>
       {/if}

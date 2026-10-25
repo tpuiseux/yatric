@@ -4,12 +4,20 @@ import type {
   AthleteZones,
   UnitPreferences,
 } from "../../schema/training-plan.js";
+import { isRestPlaceholder } from "../utils.js";
 
 /**
  * Direct, immediate mutations on a plan object. The DB row is the single
  * source of truth, so each mutation just edits the plan in place and the
  * caller persists it immediately via savePlanForUser.
  */
+
+/** A session placed on a rest day replaces the day's "Rest" placeholder. */
+function placeOnDay(workouts: Workout[], workout: Workout): Workout[] {
+  const kept = workout.sport === "rest" ? workouts : workouts.filter((w) => !isRestPlaceholder(w));
+  kept.push(workout);
+  return kept;
+}
 
 class WorkoutNotFoundError extends Error {
   constructor(workoutId: string) {
@@ -69,7 +77,7 @@ export function moveWorkout(plan: TrainingPlan, workoutId: string, newDate: stri
   }
 
   found.workouts.splice(found.index, 1);
-  (targetDay.workouts ??= []).push(found.workout);
+  targetDay.workouts = placeOnDay(targetDay.workouts ?? [], found.workout);
   plan.meta.updatedAt = new Date().toISOString();
   return plan;
 }
@@ -108,7 +116,7 @@ export function addWorkout(plan: TrainingPlan, date: string, workout: Workout): 
     throw new Error(`No day with date ${date} exists in this plan`);
   }
 
-  (targetDay.workouts ??= []).push(workout);
+  targetDay.workouts = placeOnDay(targetDay.workouts ?? [], workout);
   plan.meta.updatedAt = new Date().toISOString();
   return plan;
 }
