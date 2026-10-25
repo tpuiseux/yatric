@@ -64,6 +64,10 @@
 </div>
 
 <style>
+  /* The header keeps its height; only the middle scrolls. */
+  header {
+    flex-shrink: 0;
+  }
   .overlay {
     position: fixed;
     inset: 0;
@@ -106,6 +110,7 @@
   }
   .body {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: var(--space-2) var(--space-8) var(--space-8);
   }

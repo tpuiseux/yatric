@@ -737,6 +737,11 @@
 </div>
 
 <style>
+  /* Header and footer keep their height; only the middle scrolls. */
+  header,
+  footer {
+    flex-shrink: 0;
+  }
   .overlay {
     position: fixed;
     inset: 0;
@@ -786,6 +791,7 @@
   }
   .body {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;

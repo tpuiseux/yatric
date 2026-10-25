@@ -704,6 +704,11 @@
     stroke-width: 1.75;
     stroke-linecap: round;
   }
+  /* Header and tabs keep their height; only the body scrolls. */
+  header,
+  .tabs {
+    flex-shrink: 0;
+  }
   .tabs {
     display: flex;
     gap: var(--space-1);
@@ -728,6 +733,8 @@
     border-bottom-color: var(--ink);
   }
   .body {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;

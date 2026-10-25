@@ -418,6 +418,11 @@
 {/if}
 
 <style>
+  /* The header keeps its height; only the middle scrolls. */
+  header,
+  .composer {
+    flex-shrink: 0;
+  }
   .coach {
     position: sticky;
     top: 57px;
@@ -450,6 +455,7 @@
 
   .thread {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
