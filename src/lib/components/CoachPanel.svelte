@@ -319,8 +319,8 @@
                           <div><s class="muted">{when(c.before)}</s> {when(c.after)}</div>
                         {:else if c.op === "edit" && c.before && c.after}
                           <div>
-                            {#if c.before.name !== c.after.name}<s class="muted">{c.before.name}</s>
-                            {/if}{c.after.name}, {when(c.after)}
+                            {#if c.before.name !== c.after.name}<s class="muted">{c.before.name}</s
+                              >{" "}{/if}{c.after.name}, {when(c.after)}
                           </div>
                           {#if c.before.durationMinutes !== c.after.durationMinutes}
                             <div class="num">
