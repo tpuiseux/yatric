@@ -1,17 +1,34 @@
-# Yatric
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/banner-dark.png" />
+  <img alt="yatric - Yet Another Triathlon Coach" src="docs/images/banner-light.png" />
+</picture>
 
-**Y**et **A**nother **TRI**athlon **C**oach: an endurance training app with an AI coach. Fill in a short form about your race and your running, and the coach assesses where you stand, agrees a goal with you, and writes a periodized plan week by week. As you train, your Garmin activities and recovery data come back into the app, and the coach keeps the plan honest: it reviews each week, predicts your race time from your sessions, and changes the plan with you in a chat.
+An endurance training app with an AI coach. Tell it about your race and your running: the coach assesses where you stand, agrees a goal with you and writes a periodized plan week by week. As you train, your Garmin activities and recovery come back into the app, and the coach keeps the plan honest - it reviews each week, predicts your race time from your sessions, and changes the plan with you in a chat.
 
-- **Plans built online** from a form, with your Garmin history when it's synced: 5K to marathon, road or trail, 3 to 30 weeks.
-- **A coach you can talk to**, who reads your plan, your activities and your recovery, and proposes changes you apply (or undo) in one click.
+<p align="center">
+  <img alt="The week of a marathon plan, with the coach proposing a lighter long run" src="docs/images/plan-coach.png" width="76%" />
+  &nbsp;
+  <img alt="The same plan on a phone" src="docs/images/phone.png" width="20%" />
+</p>
+
+## What it does
+
+- **Today first.** The plan opens on today's session, the countdown to race day, your predicted time and how your body reads this morning (HRV and resting heart rate read together).
+- **Sessions coloured by intensity**, from easy grey to hard red, so a week shows at a glance whether easy days are easy.
+- **A coach you can talk to.** It reads your plan, your activities, your feedback and your recovery, and proposes changes you apply, or undo, in one click. Computed guardrails check every change: no new weekly high more than 10% over the last four weeks, no hard sessions back to back, no hard session after a red morning.
+- **Plans built online** from a short form and your Garmin history: 5K to marathon, road or trail, 3 to 30 weeks.
 - **Weekly reviews**: planned against done, missed sessions, easy runs that weren't easy, how you slept.
-- **Load and recovery**: acute:chronic workload ratio, HRV, sleep, readiness, resting heart rate, with warnings when they drift.
+- **Load and recovery**: acute:chronic workload ratio, HRV, sleep, readiness and resting heart rate, with warnings when they drift.
 - **Race prediction** that moves with your training (Riegel, Daniels VDOT, Tanda, speed at race heart rate).
-- **Garmin Connect**: structured workouts sent to your watch, with paces that follow your zones when they change; activities and wellness synced back.
+- **Garmin Connect**: structured workouts sent to your watch, with paces that follow your zones when they change; activities and recovery synced back.
 - **Exports**: calendar (.ics), Zwift (.zwo), Garmin (.fit), TrainerRoad/ERG (.mrc).
-- Works on phones, and installs on the home screen.
+- **In French or English**, dark or light, on a computer or a phone, where it installs on the home screen.
 
-Yatric is open source (MIT) and can be self-hosted.
+## Hosted accounts - €3 a month
+
+Rather not run a server? I host Yatric accounts for **€3 a month**: your account on my instance, kept up to date, nothing to install. [Get in touch](https://github.com/tpuiseux) to get one.
+
+Yatric is also open source (MIT): everything below is what you need to host it yourself.
 
 ## Self-hosting
 
@@ -120,7 +137,7 @@ Garmin's sign-in often rejects password logins from datacenter IPs (`HTTP 403` /
 
 ### 5. On a phone
 
-The plan opens on today, one row per day, with plan details behind the ☰ menu. To install it, open it in Safari, then Share → **Add to Home Screen** (Android/Chrome: menu → **Install app**), and log in once inside the installed app.
+The plan opens on today, with the week as a list from today on, and the Week, Plan, Recovery and Coach tabs at the bottom. To install it, open it in Safari, then Share → **Add to Home Screen** (Android/Chrome: menu → **Install app**), and log in once inside the installed app.
 
 ### 6. Updating
 
