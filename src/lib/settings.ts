@@ -322,7 +322,9 @@ function scalePace(pace: string, ratio: number): string {
 /** The zone's plan bounds, rescaled to its current pace - or none, if the
  * zone never had bounds (the Garmin export then falls back to a band
  * around `pace`). */
-function runPaceBounds(zone: PaceZone): { low: string; high: string } | Record<string, never> {
+export function runPaceBounds(
+  zone: PaceZone
+): { low: string; high: string } | Record<string, never> {
   if (!zone.low || !zone.high || !zone.boundsPace) return {};
   const from = paceToSeconds(zone.boundsPace);
   const to = paceToSeconds(zone.pace);
