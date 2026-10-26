@@ -30,8 +30,14 @@ export interface GuardrailFinding {
   weekNumber: number;
   /** What was measured (percent, ratio), to tell whether a change made it worse. */
   value: number;
+  /** The figures and names the message quotes, for the interface's own wording. */
+  params: Record<string, string | number>;
+  /** In English, for the coach. */
   text: string;
 }
+
+/** A finding as a proposal card keeps it. */
+export type GuardrailNote = Pick<GuardrailFinding, "rule" | "params" | "text">;
 
 export interface GuardrailContext {
   today: string;
@@ -141,6 +147,13 @@ function volumeJump(
     key: `volume_jump:${week.startDate}`,
     weekNumber: week.weekNumber,
     value: pct,
+    params: {
+      week: week.weekNumber,
+      minutes: planned,
+      pct: Math.round(pct),
+      biggest,
+      limit: LIMITS.volumeJumpPct,
+    },
     text: `Week ${week.weekNumber}: ${hours(planned)}, ${Math.round(pct)}% above the biggest of the 4 weeks before (${hours(biggest)}) - keep a new high within ~${LIMITS.volumeJumpPct}%`,
   };
 }
@@ -164,6 +177,7 @@ function monotony(week: TrainingWeek): GuardrailFinding | null {
     key: `monotony:${week.startDate}`,
     weekNumber: week.weekNumber,
     value,
+    params: { week: week.weekNumber, value: Math.round(value * 10) / 10, limit: LIMITS.monotony },
     text: `Week ${week.weekNumber}: every day carries about the same load (monotony ${value.toFixed(1)}, keep it under ${LIMITS.monotony}) - make the easy days easier or add a rest day`,
   };
 }
@@ -183,6 +197,12 @@ function longRunShare(week: TrainingWeek): GuardrailFinding | null {
     key: `long_run_share:${week.startDate}`,
     weekNumber: week.weekNumber,
     value: pct,
+    params: {
+      week: week.weekNumber,
+      name: longest.name,
+      pct: Math.round(pct),
+      limit: LIMITS.longRunSharePct,
+    },
     text: `Week ${week.weekNumber}: "${longest.name}" is ${Math.round(pct)}% of the week's running (keep it under ${LIMITS.longRunSharePct}%) - the rest of the week doesn't support it`,
   };
 }
@@ -217,6 +237,7 @@ export function checkWeeks(weeks: TrainingWeek[], ctx: GuardrailContext): Guardr
       key: `consecutive_quality:${a.workout.id}:${b.workout.id}`,
       weekNumber: b.week.weekNumber,
       value: 1,
+      params: { a: a.workout.name, b: b.workout.name, dateA: a.date, dateB: b.date },
       text: `"${a.workout.name}" and "${b.workout.name}" are hard sessions ${when} - put an easy day between them`,
     });
   }
@@ -231,6 +252,7 @@ export function checkWeeks(weeks: TrainingWeek[], ctx: GuardrailContext): Guardr
         key: `quality_after_red:${workout.id}:${date}`,
         weekNumber: week.weekNumber,
         value: 1,
+        params: { name: workout.name, date, red },
         text: `"${workout.name}" is a hard session on ${date}, right after a red morning (${red}: HRV low with resting heart rate up, or readiness poor) - make it easy or rest`,
       });
     }

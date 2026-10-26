@@ -1,5 +1,5 @@
 import type { Settings } from "./settings.js";
-import type { Sport } from "../schema/training-plan.js";
+import type { Sport, Workout } from "../schema/training-plan.js";
 import { activitySport, type RecordedActivity } from "./trainingLog.js";
 
 const METERS_PER_YARD = 0.9144;
@@ -121,19 +121,6 @@ export function parseDate(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
-export function getSportColor(sport: Sport): string {
-  const colors: Record<Sport, string> = {
-    swim: "var(--swim)",
-    bike: "var(--bike)",
-    run: "var(--run)",
-    strength: "var(--strength)",
-    brick: "var(--brick)",
-    race: "var(--race)",
-    rest: "var(--rest)",
-  };
-  return colors[sport] || "var(--text-muted)";
-}
-
 export function getSportIcon(sport: Sport): string {
   const icons: Record<Sport, string> = {
     swim: "\u{1F3CA}",
@@ -169,15 +156,19 @@ export function formatRelativeTime(iso: string, now = Date.now()): string {
   return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
-/** The CSS colour for a phase, from the kind of phase its name says it is. */
-export function phaseColor(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("taper") || n.includes("race")) return "var(--phase-taper)";
-  if (n.includes("peak") || n.includes("specific")) return "var(--phase-peak)";
-  if (n.includes("rebuild") || n.includes("transition")) return "var(--phase-rebuild)";
-  if (n.includes("recovery")) return "var(--phase-recovery)";
-  if (n.includes("build")) return "var(--phase-build)";
-  if (n.includes("survival")) return "var(--race)";
-  if (n.includes("bank")) return "var(--bike)";
-  return "var(--phase-base)";
+const GENERIC_REST = /^\s*(rest|rest day|day off|off|repos|jour de repos)\s*$/i;
+
+/**
+ * A rest "workout" that only says the day is a rest day - not one that
+ * names something to do (a "Badminton (Cross-Training)" filed under rest).
+ * It means nothing on a day that also has a session.
+ */
+export function isRestPlaceholder(w: Pick<Workout, "sport" | "name">): boolean {
+  return w.sport === "rest" && GENERIC_REST.test(w.name ?? "");
+}
+
+/** The day's workouts as shown: rest placeholders dropped when a session is planned. */
+export function visibleWorkouts(workouts: Workout[]): Workout[] {
+  const hasSession = workouts.some((w) => w.sport !== "rest");
+  return hasSession ? workouts.filter((w) => !isRestPlaceholder(w)) : workouts;
 }

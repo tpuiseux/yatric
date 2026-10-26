@@ -1,37 +1,26 @@
 <script lang="ts">
-  import { fatigueSignals, type LoadDay, type LoadSeries } from "../load.js";
+  import type { Snippet } from "svelte";
+  import type { LoadDay, LoadSeries } from "../load.js";
+  import { getI18n } from "../i18n/index.js";
 
+  /**
+   * The Recovery view: training load and its ratio (ACWR), HRV, sleep,
+   * readiness and resting heart rate, today's values then day by day.
+   */
   interface Props {
     load: LoadSeries;
     planStartDate: string;
-    /** Opens the coach chat with a message about the signals. */
-    onAskCoach: (text: string) => void;
+    /** Shown under the title: what this morning's data says. */
+    children?: Snippet;
   }
 
-  let { load, planStartDate, onAskCoach }: Props = $props();
+  let { load, planStartDate, children }: Props = $props();
 
-  const STORAGE_KEY = "coach.loadPanel.open";
-  let open = $state(readOpen());
-
-  function readOpen(): boolean {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === "1";
-    } catch {
-      return false;
-    }
-  }
-
-  function toggle() {
-    open = !open;
-    try {
-      localStorage.setItem(STORAGE_KEY, open ? "1" : "0");
-    } catch {
-      // Remembering is a nicety.
-    }
-  }
+  const i18n = getI18n();
+  const m = $derived(i18n.m);
+  const fmt = $derived(i18n.fmt);
 
   const days = $derived(load.days);
-  const signals = $derived(fatigueSignals(days));
 
   /** The latest day with a value for each measure - today's may not be in yet. */
   function latest<K extends keyof LoadDay>(key: K): LoadDay | null {
@@ -40,60 +29,61 @@
   }
 
   function shortDate(date: string): string {
-    return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      timeZone: "UTC",
-    });
+    return fmt.date(date, "short");
   }
 
-  function titleCase(s: string): string {
-    return s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
+  function hrvStatus(s: string): string {
+    return m.recovery.hrvStatus[s.toUpperCase()] ?? s.charAt(0) + s.slice(1).toLowerCase();
   }
 
   const tiles = $derived.by(() => {
-    const t: { label: string; value: string; sub: string }[] = [];
+    const t: { label: string; value: string; unit?: string; sub: string }[] = [];
     const a = latest("acwr");
     if (a?.acwr != null) {
       t.push({
-        label: "ACWR",
-        value: a.acwr.toFixed(2),
-        sub: a.acwr > 1.5 ? "ramping fast" : a.acwr < 0.8 ? "below your usual" : "in range",
+        label: m.recovery.acwr,
+        value: fmt.number(a.acwr, 2),
+        sub:
+          a.acwr > 1.5
+            ? m.recovery.acwrHigh
+            : a.acwr < 0.8
+              ? m.recovery.acwrLow
+              : m.recovery.acwrInRange,
       });
     }
     const l = latest("acute");
     if (l?.acute != null) {
       t.push({
-        label: "Load (7 days)",
+        label: m.recovery.load,
         value: String(Math.round(l.acute)),
-        sub: l.chronic != null ? `4-week ${Math.round(l.chronic)}` : "",
+        sub: l.chronic != null ? m.recovery.load4(Math.round(l.chronic)) : "",
       });
     }
     const h = latest("hrv");
     if (h?.hrv != null) {
       t.push({
-        label: "HRV",
-        value: `${Math.round(h.hrv)} ms`,
-        sub: h.hrvStatus ? titleCase(h.hrvStatus) : "",
+        label: m.recovery.hrv,
+        value: String(Math.round(h.hrv)),
+        unit: "ms",
+        sub: h.hrvStatus ? hrvStatus(h.hrvStatus) : "",
       });
     }
     const s = latest("sleepScore");
     if (s?.sleepScore != null)
-      t.push({ label: "Sleep", value: String(s.sleepScore), sub: shortDate(s.date) });
+      t.push({ label: m.recovery.sleep, value: String(s.sleepScore), sub: shortDate(s.date) });
     const r = latest("readiness");
     if (r?.readiness != null)
-      t.push({ label: "Readiness", value: String(r.readiness), sub: shortDate(r.date) });
+      t.push({ label: m.recovery.readiness, value: String(r.readiness), sub: shortDate(r.date) });
     const rhr = latest("restingHr");
     if (rhr?.restingHr != null)
-      t.push({ label: "Resting HR", value: `${rhr.restingHr} bpm`, sub: shortDate(rhr.date) });
+      t.push({
+        label: m.recovery.restingHr,
+        value: String(rhr.restingHr),
+        unit: "bpm",
+        sub: shortDate(rhr.date),
+      });
     return t;
   });
-
-  function askCoach() {
-    onAskCoach(
-      `My recovery data shows: ${signals.map((s) => s.text.toLowerCase()).join("; ")}. Should I change anything in the coming days?`
-    );
-  }
 
   // --- Charts ---------------------------------------------------------------
 
@@ -142,14 +132,20 @@
     if (acute.some((v) => v !== null)) {
       out.push({
         key: "load",
-        title: "Training load",
-        unit: load.loadSource === "garmin" ? "" : "(from activities)",
+        title: m.recovery.charts.load,
+        unit: load.loadSource === "garmin" ? "" : m.recovery.charts.fromActivities,
         series: [
-          { key: "acute", label: "7 days", color: "var(--run)", values: acute, kind: "line" },
+          {
+            key: "acute",
+            label: m.recovery.charts.acute,
+            color: "var(--signal)",
+            values: acute,
+            kind: "line",
+          },
           {
             key: "chronic",
-            label: "4 weeks",
-            color: "var(--phase-base)",
+            label: m.recovery.charts.chronic,
+            color: "var(--ink-muted)",
             values: chronic,
             kind: "line",
           },
@@ -164,10 +160,8 @@
       out.push({
         key: "acwr",
         title: "ACWR",
-        unit: "acute : chronic",
-        series: [
-          { key: "acwr", label: "ACWR", color: "var(--text-primary)", values: acwr, kind: "line" },
-        ],
+        unit: m.recovery.charts.acwrUnit,
+        series: [{ key: "acwr", label: "ACWR", color: "var(--ink)", values: acwr, kind: "line" }],
         band: [0.8, 1.3],
         reference: 1.5,
         domain: [lo, hi],
@@ -179,14 +173,20 @@
       const weekly = days.map((d) => d.hrvWeekly);
       out.push({
         key: "hrv",
-        title: "HRV",
+        title: m.recovery.hrv,
         unit: "ms",
         series: [
-          { key: "hrv", label: "Night", color: "var(--phase-build)", values: hrv, kind: "dots" },
+          {
+            key: "hrv",
+            label: m.recovery.charts.hrvNight,
+            color: "var(--ink-muted)",
+            values: hrv,
+            kind: "dots",
+          },
           {
             key: "hrvWeekly",
-            label: "7-day avg",
-            color: "var(--phase-build)",
+            label: m.recovery.charts.hrvWeek,
+            color: "var(--signal)",
             values: weekly,
             kind: "line",
           },
@@ -199,10 +199,16 @@
     if (sleep.some((v) => v !== null)) {
       out.push({
         key: "sleep",
-        title: "Sleep score",
+        title: m.recovery.charts.sleep,
         unit: "",
         series: [
-          { key: "sleep", label: "Sleep", color: "var(--swim)", values: sleep, kind: "bars" },
+          {
+            key: "sleep",
+            label: m.recovery.sleep,
+            color: "var(--z2)",
+            values: sleep,
+            kind: "bars",
+          },
         ],
         reference: 60,
         domain: [0, 100],
@@ -266,52 +272,44 @@
       for (const s of p.series) {
         const v = s.values[hoverIndex];
         rows.push({
-          label: p.series.length > 1 ? `${p.title} · ${s.label}` : p.title,
+          label: p.series.length > 1 ? `${p.title}, ${s.label}` : p.title,
           color: s.color,
           value: v === null ? "–" : `${p.format(v)}${p.unit && p.key === "hrv" ? " ms" : ""}`,
         });
       }
     }
     if (d.hrvStatus)
-      rows.push({ label: "HRV status", color: "transparent", value: titleCase(d.hrvStatus) });
+      rows.push({
+        label: m.recovery.charts.hrvStatus,
+        color: "transparent",
+        value: hrvStatus(d.hrvStatus),
+      });
     if (d.readiness !== null)
-      rows.push({ label: "Readiness", color: "transparent", value: String(d.readiness) });
+      rows.push({ label: m.recovery.readiness, color: "transparent", value: String(d.readiness) });
     return { left: x(hoverIndex), date: d.date, rows };
   });
 </script>
 
-<section class="load-panel" aria-label="Load and recovery">
-  <div class="head">
-    <span class="title">Load &amp; recovery</span>
-    <button class="toggle" onclick={toggle} aria-expanded={open}>
-      {open ? "Hide charts" : "Show charts"}
-    </button>
-  </div>
-
+<section class="load-panel" aria-label={m.recovery.title}>
+  <h2 class="title-m">{m.recovery.title}</h2>
+  {@render children?.()}
   {#if tiles.length > 0}
     <div class="tiles">
       {#each tiles as tile (tile.label)}
         <div class="tile">
-          <div class="tile-label">{tile.label}</div>
-          <div class="tile-value">{tile.value}</div>
-          {#if tile.sub}<div class="tile-sub">{tile.sub}</div>{/if}
+          <span class="tile-label">{tile.label}</span>
+          <span class="tile-value"
+            ><span class="figure-m">{tile.value}</span>{#if tile.unit}<span class="unit"
+                >{tile.unit}</span
+              >{/if}</span
+          >
+          {#if tile.sub}<span class="tile-label">{tile.sub}</span>{/if}
         </div>
       {/each}
     </div>
   {/if}
 
-  {#if signals.length > 0}
-    <div class="signals" role="status">
-      <ul>
-        {#each signals as s (s.key)}
-          <li><span class="warn-icon">⚠</span> {s.text}</li>
-        {/each}
-      </ul>
-      <button onclick={askCoach}>Ask the coach</button>
-    </div>
-  {/if}
-
-  {#if open}
+  {#if days.length}
     <div class="charts" bind:clientWidth={width}>
       {#if width > 0 && panels.length > 0}
         {#each panels as p (p.key)}
@@ -332,7 +330,7 @@
               {width}
               height={PANEL_HEIGHT}
               role="img"
-              aria-label="{p.title}, day by day"
+              aria-label={m.recovery.charts.dayByDay(p.title)}
               onpointermove={onPointer}
               onpointerdown={onPointer}
               onpointerleave={() => (hoverIndex = null)}
@@ -420,7 +418,9 @@
             >
           {/each}
           {#if planStartIndex > 0}
-            <text class="axis plan-label" x={x(planStartIndex) + 3} y="11">plan starts</text>
+            <text class="axis plan-label" x={x(planStartIndex) + 3} y="11"
+              >{m.recovery.planStarts}</text
+            >
           {/if}
         </svg>
 
@@ -437,12 +437,9 @@
           </div>
         {/if}
 
-        <p class="note">
-          ACWR shaded 0.8–1.3 (the usual safe range); above 1.5, load is rising faster than the body
-          adapts. Sleep line at 60. Dashed vertical line: the plan's start.
-        </p>
+        <p class="note">{m.recovery.note}</p>
       {:else if panels.length === 0}
-        <p class="note">No load or recovery data synced from Garmin yet.</p>
+        <p class="note">{m.recovery.empty}</p>
       {/if}
     </div>
   {/if}
@@ -450,269 +447,153 @@
 
 <style>
   .load-panel {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-subtle);
-    border-radius: 16px;
-    padding: 0.9rem 1.25rem 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .head {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: var(--space-6);
   }
-
-  .toggle {
-    padding: 0.3rem 0.7rem;
-    border-radius: 999px;
-    border: 1px solid var(--border-medium);
-    background: transparent;
-    color: var(--text-primary);
-    font-size: 0.75rem;
-  }
-
-  .toggle:hover {
-    background: var(--bg-tertiary);
-  }
-
-  .title {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-  }
-
   .tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 0.5rem;
-    margin-top: 0.6rem;
-  }
-
-  .tile {
-    background: var(--bg-tertiary);
-    border-radius: 10px;
-    padding: 0.55rem 0.7rem;
-  }
-
-  .tile-label {
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-  }
-
-  .tile-value {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-size: 1.05rem;
-    font-weight: 600;
-    margin-top: 0.1rem;
-  }
-
-  .tile-sub {
-    font-size: 0.72rem;
-    color: var(--text-secondary);
-  }
-
-  .signals {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem 1rem;
-    margin-top: 0.75rem;
-    padding: 0.6rem 0.8rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
-    background: var(--warning-bg);
-    color: var(--text-primary);
-    font-size: 0.82rem;
+    gap: var(--space-6) var(--space-8);
   }
-
-  .warn-icon {
-    color: var(--warning);
+  .tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 96px;
   }
-
-  .signals ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .tile-label {
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--ink-muted);
   }
-
-  .signals button {
-    padding: 0.4rem 0.8rem;
-    border-radius: 8px;
-    border: none;
-    background: var(--accent);
-    color: var(--accent-ink);
+  .tile-value {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1);
+  }
+  .tile-value .unit,
+  .unit {
+    font-size: 13px;
     font-weight: 600;
-    font-size: 0.8rem;
+    color: var(--ink-muted);
   }
-
   .charts {
     position: relative;
-    margin-top: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 960px;
   }
-
   .panel-title {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 0.3rem 0.8rem;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin: 0.4rem 0 0.1rem;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    margin-bottom: var(--space-1);
+    font-size: 14px;
+    font-weight: 650;
   }
-
-  .unit {
-    color: var(--text-muted);
-  }
-
   .legend {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
-    color: var(--text-muted);
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-muted);
   }
-
   .swatch {
     display: inline-block;
-    width: 10px;
-    height: 2px;
-    border-radius: 1px;
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
   }
-
   .swatch.dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
   }
-
   svg {
     display: block;
+    overflow: visible;
     touch-action: pan-y;
   }
-
   .band {
-    fill: var(--bike-glow);
+    fill: var(--sunk);
   }
-
   .grid {
-    stroke: var(--border-subtle);
+    stroke: var(--line);
+    stroke-width: 1;
   }
-
   .reference {
-    stroke: var(--text-muted);
-    stroke-dasharray: 4 4;
+    stroke: var(--warning);
+    stroke-width: 1;
+    stroke-dasharray: 4 3;
   }
-
   .plan-start {
-    stroke: var(--border-medium);
+    stroke: var(--line-strong);
     stroke-dasharray: 2 3;
   }
-
   .axis {
-    fill: var(--text-muted);
-    font-size: 10px;
+    fill: var(--ink-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
   }
-
   .plan-label {
-    fill: var(--text-muted);
+    fill: var(--ink-muted);
   }
-
   .line {
     fill: none;
     stroke-width: 2;
     stroke-linejoin: round;
     stroke-linecap: round;
   }
-
   .crosshair {
-    stroke: var(--text-muted);
+    stroke: var(--line-strong);
     stroke-width: 1;
   }
-
   .tooltip {
     position: absolute;
-    top: 1.5rem;
+    top: 0;
     transform: translateX(12px);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-medium);
-    border-radius: 8px;
-    padding: 0.4rem 0.6rem;
-    font-size: 0.75rem;
+    min-width: 200px;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-s);
+    background: var(--sheet);
+    box-shadow: var(--shadow-float);
+    font-size: 12px;
     pointer-events: none;
-    white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     z-index: 2;
   }
-
   .tooltip.flip {
     transform: translateX(calc(-100% - 12px));
   }
-
   .tooltip-heading {
-    color: var(--text-secondary);
-    margin-bottom: 0.15rem;
+    font-weight: 650;
+    margin-bottom: var(--space-1);
   }
-
   .tooltip-row {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 6px;
   }
-
   .tooltip-row .swatch {
     width: 8px;
     height: 8px;
     border-radius: 2px;
   }
-
   .tooltip-name {
-    color: var(--text-muted);
     flex: 1;
+    color: var(--ink-muted);
   }
-
   .tooltip-value {
-    font-family: var(--font-display);
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
-    margin-left: 0.6rem;
   }
-
   .note {
-    margin-top: 0.5rem;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-  }
-
-  @media (max-width: 800px) {
-    .load-panel {
-      padding: 0.8rem 0.9rem;
-      border-radius: 12px;
-      margin-bottom: 1rem;
-    }
-
-    .toggle {
-      min-height: 36px;
-    }
-
-    .tiles {
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.4rem;
-    }
-
-    .tile {
-      padding: 0.45rem 0.55rem;
-    }
-
-    .tile-value {
-      font-size: 0.95rem;
-    }
-
-    .signals button {
-      min-height: 40px;
-    }
+    max-width: 70ch;
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--ink-muted);
   }
 </style>

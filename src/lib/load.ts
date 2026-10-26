@@ -112,6 +112,20 @@ export function buildLoadSeries(
 
 export interface FatigueSignal {
   key: "acwr" | "hrv" | "readiness" | "sleep" | "restingHr";
+  /** Which message it is, for the interface's own wording (lib/i18n). */
+  code:
+    | "acwr"
+    | "hrvStreak"
+    | "hrvStress"
+    | "readinessStreak"
+    | "sleepStreak"
+    | "restingHrIllness"
+    | "restingHrUp";
+  /** The figure the message quotes: ACWR, days, nights or bpm. */
+  n: number;
+  /** Red: rest or very easy; warn: hold off the intensity. */
+  level: "warn" | "red";
+  /** In English, for the coach. */
   text: string;
 }
 
@@ -216,6 +230,9 @@ export function fatigueSignals(days: LoadDay[]): FatigueSignal[] {
   if (last?.acwr && last.acwr > 1.5) {
     out.push({
       key: "acwr",
+      code: "acwr",
+      n: last.acwr,
+      level: "warn",
       text: `Load ramping fast: ACWR ${last.acwr.toFixed(2)} (keep under ~1.5)`,
     });
   }
@@ -233,23 +250,49 @@ export function fatigueSignals(days: LoadDay[]): FatigueSignal[] {
   const today = latest >= 0 ? morningRead(days, latest) : null;
 
   if (hrv >= 3) {
-    out.push({ key: "hrv", text: `HRV below your normal range ${hrv} days running` });
+    out.push({
+      key: "hrv",
+      code: "hrvStreak",
+      n: hrv,
+      level: "warn",
+      text: `HRV below your normal range ${hrv} days running`,
+    });
   } else if (today?.hrvLow && today.restingHrUp === false) {
     out.push({
       key: "hrv",
+      code: "hrvStress",
+      n: 0,
+      level: "warn",
       text: "HRV low with resting heart rate steady: stress or short sleep rather than illness - easy running is fine, skip the intensity",
     });
   }
   const readiness = streak(recent, (d) => (d.readiness === null ? null : d.readiness < 40));
   if (readiness >= 3)
-    out.push({ key: "readiness", text: `Low training readiness ${readiness} days running` });
+    out.push({
+      key: "readiness",
+      code: "readinessStreak",
+      n: readiness,
+      level: "warn",
+      text: `Low training readiness ${readiness} days running`,
+    });
   const sleep = streak(recent, (d) => (d.sleepScore === null ? null : d.sleepScore < 60));
-  if (sleep >= 3) out.push({ key: "sleep", text: `Poor sleep ${sleep} nights running` });
+  if (sleep >= 3) {
+    out.push({
+      key: "sleep",
+      code: "sleepStreak",
+      n: sleep,
+      level: "warn",
+      text: `Poor sleep ${sleep} nights running`,
+    });
+  }
 
   if (today?.restingHrUp) {
     const up = `Resting heart rate up ${today.restingHrRise} bpm on the week before`;
     out.push({
       key: "restingHr",
+      code: today.hrvLow ? "restingHrIllness" : "restingHrUp",
+      n: today.restingHrRise ?? 0,
+      level: today.hrvLow ? "red" : "warn",
       text: today.hrvLow
         ? `${up}, with HRV low: more likely illness, heat, alcohol or dehydration than training - rest or keep it very easy`
         : `${up}: hold off hard sessions and check again tomorrow`,

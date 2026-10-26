@@ -36,10 +36,7 @@ export interface PaceZone {
   boundsPace?: string;
 }
 
-export type Theme = "dark" | "light";
-
 export interface Settings {
-  theme: Theme;
   units: {
     swim: "meters" | "yards";
     bike: "kilometers" | "miles";
@@ -66,7 +63,6 @@ export interface Settings {
 }
 
 const defaultSettings: Settings = {
-  theme: "dark",
   units: { swim: "meters", bike: "kilometers", run: "kilometers" },
   firstDayOfWeek: "monday",
   run: {

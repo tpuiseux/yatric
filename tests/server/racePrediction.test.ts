@@ -73,7 +73,7 @@ describe("raceTarget", () => {
     });
     expect(raceTarget(p)).toEqual({
       distanceMeters: 21097.5,
-      goalSeconds: Math.round(260 * 21.0975),
+      goalSeconds: Math.round((260 * 21.0975) / 60) * 60,
       raceHr: Math.round(176 * 0.93),
     });
   });

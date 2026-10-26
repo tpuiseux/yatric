@@ -6,6 +6,7 @@
  */
 
 import type { StructuredWorkout, Workout } from "../schema/training-plan.js";
+import type { GuardrailNote } from "./guardrails.js";
 
 /** Workout fields the coach may set - the same ones the app lets the athlete
  * edit (lib/server/validation.ts), plus the device-export structure. */
@@ -56,7 +57,7 @@ export interface CoachProposal {
   summary: string;
   changes: ChangePreview[];
   /** What the guardrails (lib/guardrails.ts) flag in the changed plan. */
-  warnings: string[];
+  warnings: GuardrailNote[];
   status: ProposalStatus;
   createdAt: string;
 }

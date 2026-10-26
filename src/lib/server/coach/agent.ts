@@ -11,7 +11,7 @@ import {
   recordUsage,
   takeProposalNews,
 } from "./store.js";
-import { COACH_TOOLS, runCoachTool, TOOL_LABELS } from "./tools.js";
+import { COACH_TOOLS, runCoachTool } from "./tools.js";
 
 /**
  * One exchange with the coach: the athlete's message in, the coach's reply
@@ -241,7 +241,8 @@ export async function runCoachTurn(options: {
           });
           continue;
         }
-        emit({ type: "activity", label: TOOL_LABELS[call.name] ?? call.name });
+        // The tool's name: the chat words it in the athlete's language.
+        emit({ type: "activity", label: call.name });
         try {
           const content = await runCoachTool(
             {

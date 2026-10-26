@@ -8,6 +8,7 @@ import type {
   PlanChange,
   ProposalStatus,
 } from "../../coach.js";
+import type { GuardrailNote } from "../../guardrails.js";
 
 /** Coach conversations, messages and proposals in the database (schema.ts). */
 
@@ -82,7 +83,7 @@ interface ProposalRow {
 interface StoredChanges {
   changes: PlanChange[];
   preview: ChangePreview[];
-  warnings?: string[];
+  warnings?: (GuardrailNote | string)[];
 }
 
 function toProposal(row: ProposalRow): CoachProposal {
@@ -91,7 +92,9 @@ function toProposal(row: ProposalRow): CoachProposal {
     id: row.id,
     summary: row.summary,
     changes: stored.preview,
-    warnings: stored.warnings ?? [],
+    warnings: (stored.warnings ?? []).map((w) =>
+      typeof w === "string" ? { rule: "volume_jump" as const, params: {}, text: w } : w
+    ),
     status: row.status,
     createdAt: row.created_at,
   };
@@ -105,7 +108,7 @@ export function createProposal(
   summary: string,
   changes: PlanChange[],
   preview: ChangePreview[],
-  warnings: string[] = []
+  warnings: GuardrailNote[] = []
 ): CoachProposal {
   const result = run(
     `INSERT INTO coach_proposals (conversation_id, message_id, user_id, plan_id, summary, changes)

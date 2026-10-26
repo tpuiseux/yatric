@@ -154,18 +154,6 @@ export const COACH_TOOLS: Tool[] = [
   },
 ];
 
-/** Shown in the chat while the coach is looking something up. */
-export const TOOL_LABELS: Record<string, string> = {
-  get_plan_overview: "Reading the plan",
-  get_week: "Reading the week",
-  get_activities: "Looking at your activities",
-  get_activity_details: "Analysing a session",
-  get_recovery: "Checking your recovery",
-  get_race_prediction: "Checking the race prediction",
-  save_week_review: "Saving the week's notes",
-  propose_plan_changes: "Preparing changes",
-};
-
 export interface ToolContext {
   userId: number;
   planId: string;
@@ -409,7 +397,7 @@ function propose(ctx: ToolContext, input: Record<string, unknown>) {
       `${blocks.map((f) => f.text).join("; ")}. Propose an easy session or rest instead - if the athlete still wants it, they can move the session themselves in the plan.`
     );
   }
-  const warnings = found.map((f) => f.text);
+  const warnings = found.map(({ rule, params, text }) => ({ rule, params, text }));
 
   const proposal = createProposal(
     ctx.conversationId,
@@ -426,7 +414,7 @@ function propose(ctx: ToolContext, input: Record<string, unknown>) {
     proposalId: proposal.id,
     status: "shown to the athlete - not applied until they accept it",
     guardrailWarnings: warnings.length
-      ? `${warnings.join("; ")}. These are on the card: tell the athlete in a sentence why the change is still worth it, or propose a better one.`
+      ? `${warnings.map((w) => w.text).join("; ")}. These are on the card: tell the athlete in a sentence why the change is still worth it, or propose a better one.`
       : undefined,
   };
 }

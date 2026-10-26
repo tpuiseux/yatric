@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import { base } from "$app/paths";
   import AuthShell from "$lib/components/AuthShell.svelte";
+  import { getI18n } from "$lib/i18n/index.js";
   import type { ActionData, PageData } from "./$types";
 
   interface Props {
@@ -10,20 +11,23 @@
   }
 
   let { data, form }: Props = $props();
+
+  const i18n = getI18n();
+  const m = $derived(i18n.m);
 </script>
 
 <svelte:head>
-  <title>Log in — Yatric</title>
+  <title>{m.auth.pageLogin} · Yatric</title>
 </svelte:head>
 
-<AuthShell title="Welcome back" subtitle="Log in to your training plan.">
+<AuthShell>
   <form method="POST" use:enhance>
     {#if form?.error}
-      <p class="notice error">{form.error}</p>
+      <p class="notice error" role="alert">{m.auth.errors[form.error]?.(form.n ?? 0)}</p>
     {/if}
 
     <label class="field">
-      Email
+      {m.auth.email}
       <input
         class="input"
         type="email"
@@ -35,7 +39,7 @@
     </label>
 
     <label class="field">
-      Password
+      {m.auth.password}
       <input
         class="input"
         type="password"
@@ -45,38 +49,10 @@
       />
     </label>
 
-    <button class="btn btn-primary btn-lg" type="submit">Log in</button>
+    <button class="btn btn-primary btn-lg" type="submit">{m.auth.logIn}</button>
 
     {#if data.signupOpen}
-      <p class="switch">No account yet? <a href="{base}/signup">Create one</a></p>
+      <p class="switch">{m.auth.noAccount} <a href="{base}/signup">{m.auth.createOne}</a></p>
     {/if}
   </form>
 </AuthShell>
-
-<style>
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  button {
-    margin-top: 0.25rem;
-  }
-
-  .switch {
-    text-align: center;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-  }
-
-  .switch a {
-    color: var(--accent);
-    font-weight: 550;
-    text-decoration: none;
-  }
-
-  .switch a:hover {
-    text-decoration: underline;
-  }
-</style>

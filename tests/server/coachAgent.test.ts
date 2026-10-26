@@ -346,7 +346,7 @@ describe("coach turn", () => {
       api.replies.push(addTempo("g1"), reply("end_turn", [{ type: "text", text: "OK." }]));
       const events = await turn("Add a tempo tomorrow");
       const shown = events.find((e) => e.type === "proposal");
-      expect(shown?.type === "proposal" && shown.proposal.warnings).toEqual([
+      expect(shown?.type === "proposal" && shown.proposal.warnings.map((w) => w.text)).toEqual([
         expect.stringMatching(
           /"Tempo" and "Tempo 2" are hard sessions on 2026-10-20 and 2026-10-21/
         ),

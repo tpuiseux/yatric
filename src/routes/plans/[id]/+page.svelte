@@ -11,14 +11,19 @@
     buildPreferencesFromSettings,
     type Settings,
   } from "$lib/settings.js";
-  import Sidebar from "$lib/components/Sidebar.svelte";
-  import WeeksContainer from "$lib/components/WeeksContainer.svelte";
+  import AppBar, { type PlanView } from "$lib/components/AppBar.svelte";
+  import TodaySection from "$lib/components/TodaySection.svelte";
+  import WeekView from "$lib/components/WeekView.svelte";
+  import PhaseStrip from "$lib/components/PhaseStrip.svelte";
+  import RacePrediction from "$lib/components/RacePrediction.svelte";
   import WorkoutModal from "$lib/components/WorkoutModal.svelte";
   import ActivityModal from "$lib/components/ActivityModal.svelte";
   import SettingsModal from "$lib/components/SettingsModal.svelte";
   import CoachPanel from "$lib/components/CoachPanel.svelte";
-  import TodayCard from "$lib/components/TodayCard.svelte";
   import LoadPanel from "$lib/components/LoadPanel.svelte";
+  import RecoverySignals from "$lib/components/RecoverySignals.svelte";
+  import { getI18n } from "$lib/i18n/index.js";
+  import { getTodayISO } from "$lib/utils.js";
   import { runSync } from "$lib/garminSyncClient.js";
   import { matchDay, type RecordedActivity } from "$lib/trainingLog.js";
 
@@ -28,15 +33,28 @@
 
   let { data }: Props = $props();
 
-  // Theme isn't part of the plan schema, so it's not persisted server-side
-  // yet (unlike units/zones below) - it just applies for this session.
-  let theme = $state<"dark" | "light">("dark");
-  const settings = $derived({ ...deriveSettingsFromPlan(data.plan), theme });
-  $effect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  });
+  const i18n = getI18n();
+  const m = $derived(i18n.m);
+  const fmt = $derived(i18n.fmt);
 
-  let filters = $state({ sport: "all", status: "all" });
+  const settings = $derived(deriveSettingsFromPlan(data.plan));
+
+  let view = $state<PlanView>("week");
+  let coachOpen = $state(false);
+
+  // The week on show: this one, else week 1 before the plan, else the last.
+  const today = getTodayISO();
+  function defaultWeek(): number {
+    const weeks = data.plan.weeks ?? [];
+    const current = weeks.find((w) => w.startDate <= today && today <= w.endDate);
+    if (current) return current.weekNumber;
+    if (weeks.length && today > weeks[weeks.length - 1].endDate) {
+      return weeks[weeks.length - 1].weekNumber;
+    }
+    return weeks[0]?.weekNumber ?? 1;
+  }
+  let selectedWeek = $state(defaultWeek());
+
   let errorMessage = $state<string | null>(null);
   let settingsOpen = $state(false);
 
@@ -46,7 +64,7 @@
     | null;
 
   let modalState = $state<ModalState>(null);
-  // A message to start the coach chat with (from a week's "Review with coach").
+  // A message to start the coach chat with (a week's review, a recovery signal).
   let coachRequest = $state<{ id: number; text: string } | null>(null);
   // An activity that matched nothing in the plan, opened for its details.
   let openActivity = $state<RecordedActivity | null>(null);
@@ -101,12 +119,12 @@
       const res = await fetch(path, init);
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.message ?? `Request failed (${res.status})`);
+        throw new Error(body?.message ?? m.common.requestFailed(res.status));
       }
       await invalidateAll();
       return await res.json();
     } catch (err) {
-      errorMessage = err instanceof Error ? err.message : "Something went wrong.";
+      errorMessage = err instanceof Error ? err.message : m.common.somethingWrong;
       throw err;
     }
   }
@@ -188,7 +206,6 @@
   }
 
   async function handleSettingsChange(newSettings: Settings) {
-    theme = newSettings.theme;
     await request(`${base}/plans/${page.params.id}/settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -197,6 +214,29 @@
         zones: buildZonesFromSettings(newSettings),
       }),
     });
+  }
+
+  const planTotals = $derived.by(() => {
+    let minutes = 0;
+    let sessions = 0;
+    let done = 0;
+    for (const w of data.plan.weeks ?? []) {
+      for (const d of w.days ?? []) {
+        for (const x of d.workouts ?? []) {
+          if (x.sport === "rest") continue;
+          sessions++;
+          minutes += x.durationMinutes ?? 0;
+        }
+      }
+    }
+    // Done as the week reviews count it: ticked, or recorded on the watch.
+    for (const r of Object.values(data.weekReviews)) done += r.sessions.done;
+    return { minutes, sessions, done };
+  });
+
+  function askCoach(text: string) {
+    coachRequest = { id: Date.now(), text };
+    coachOpen = true;
   }
 
   function handleExportPlan() {
@@ -213,70 +253,119 @@
 </script>
 
 <svelte:head>
-  <title>{data.plan.meta.event} — Yatric</title>
+  <title>{data.plan.meta.event} · Yatric</title>
 </svelte:head>
 
-<div class="app">
-  <Sidebar
-    plan={data.plan}
-    {filters}
-    onFilterChange={(f) => (filters = f)}
-    onSettingsClick={() => (settingsOpen = true)}
-    prediction={data.prediction}
-    {settings}
-  />
+<AppBar
+  plan={data.plan}
+  {view}
+  onView={(v) => (view = v)}
+  {coachOpen}
+  onToggleCoach={() => (coachOpen = !coachOpen)}
+  onSettings={() => (settingsOpen = true)}
+/>
 
-  <main class="main-content">
+<div class="layout" class:coach-open={coachOpen}>
+  <main>
     {#if errorMessage}
-      <div class="error-banner">{errorMessage}</div>
+      <div class="notice error" role="alert">{errorMessage}</div>
     {/if}
-    <TodayCard
-      plan={data.plan}
-      activitiesByDate={data.activitiesByDate}
-      feedback={data.feedback}
-      prediction={data.prediction}
-      {settings}
-      onWorkoutClick={handleWorkoutClick}
-    />
-    {#if data.load}
-      <div class="load">
-        <LoadPanel
-          load={data.load}
-          planStartDate={data.plan.meta.planStartDate}
-          onAskCoach={(text) => (coachRequest = { id: Date.now(), text })}
-        />
-      </div>
-    {/if}
-    <div class="week">
-      <WeeksContainer
+
+    {#if view === "week"}
+      <TodaySection
         plan={data.plan}
         activitiesByDate={data.activitiesByDate}
         feedback={data.feedback}
+        prediction={data.prediction}
         {settings}
-        {filters}
+        recoveryDays={data.load?.days ?? []}
+        onWorkoutClick={handleWorkoutClick}
+        onAskCoach={askCoach}
+        onOpenRecovery={() => (view = "recovery")}
+      />
+      <WeekView
+        plan={data.plan}
+        bind:selected={selectedWeek}
+        activitiesByDate={data.activitiesByDate}
+        feedback={data.feedback}
+        {settings}
+        weekReviews={data.weekReviews}
         onWorkoutClick={handleWorkoutClick}
         onWorkoutMove={handleWorkoutMove}
         onAddWorkout={handleAddWorkout}
         onActivityClick={(activity) => (openActivity = activity)}
-        weekReviews={data.weekReviews}
         onReviewWeek={(week) =>
-          (coachRequest = {
-            id: Date.now(),
-            text: `Let's go over week ${week.weekNumber} (${week.startDate} to ${week.endDate}).`,
-          })}
+          askCoach(
+            m.week.reviewMessage(
+              week.weekNumber,
+              fmt.date(week.startDate, "dayMonth"),
+              fmt.date(week.endDate, "dayMonth")
+            )
+          )}
       />
-    </div>
+      <section class="strip">
+        <h2 class="title-m">{m.plan.title}</h2>
+        <PhaseStrip
+          plan={data.plan}
+          weekReviews={data.weekReviews}
+          onSelect={(n) => (selectedWeek = n)}
+        />
+      </section>
+    {:else if view === "plan"}
+      <section class="plan-view">
+        <h2 class="title-m">{m.plan.title}</h2>
+        <dl class="stats">
+          <div>
+            <dt>{m.plan.weeks}</dt>
+            <dd class="figure-m">{data.plan.meta.totalWeeks ?? data.plan.weeks.length}</dd>
+          </div>
+          <div>
+            <dt>{m.plan.hours}</dt>
+            <dd class="figure-m">{fmt.duration(planTotals.minutes)}</dd>
+          </div>
+          <div>
+            <dt>{m.plan.done}</dt>
+            <dd class="figure-m">
+              {planTotals.done}<span class="of">/{planTotals.sessions}</span>
+            </dd>
+          </div>
+        </dl>
+        <PhaseStrip
+          plan={data.plan}
+          weekReviews={data.weekReviews}
+          onSelect={(n) => {
+            selectedWeek = n;
+            view = "week";
+          }}
+        />
+        {#if data.prediction}
+          <div class="prediction">
+            <RacePrediction prediction={data.prediction} {settings} />
+          </div>
+        {/if}
+      </section>
+    {:else if data.load}
+      <LoadPanel load={data.load} planStartDate={data.plan.meta.planStartDate}>
+        <RecoverySignals days={data.load.days} onAskCoach={askCoach} />
+      </LoadPanel>
+    {:else}
+      <section class="plan-view">
+        <h2 class="title-m">{m.recovery.title}</h2>
+        <p class="muted">{m.recovery.empty}</p>
+      </section>
+    {/if}
   </main>
+
+  <CoachPanel
+    planId={page.params.id ?? ""}
+    request={coachRequest}
+    bind:open={coachOpen}
+    onPlanChanged={() => invalidateAll()}
+  />
 </div>
 
-<CoachPanel
-  planId={page.params.id ?? ""}
-  request={coachRequest}
-  onPlanChanged={() => invalidateAll()}
-/>
-
 {#if garminSyncing}
-  <div class="sync-pill" role="status">Syncing Garmin…</div>
+  <div class="sync-pill" role="status">{m.sync.syncing}</div>
 {/if}
 
 {#if modalState}
@@ -317,61 +406,84 @@
 {/if}
 
 <style>
-  .main-content {
-    flex: 1;
-    min-width: 0;
-    margin-left: var(--sidebar-width);
-    padding: 2rem 2rem 5rem; /* room for the Coach button */
-    max-width: 1400px;
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: calc(100vh - 57px);
+  }
+  .layout.coach-open {
+    grid-template-columns: minmax(0, 1fr) var(--coach-width);
+  }
+  main {
     display: flex;
     flex-direction: column;
+    gap: var(--space-12);
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    min-width: 0;
+    padding: var(--space-8) var(--space-8) var(--space-12);
   }
 
-  .load {
-    margin-bottom: 0.25rem;
+  .strip {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
   }
-
-  @media (max-width: 800px) {
-    .app {
-      display: block;
-    }
-
-    .main-content {
-      margin-left: 0;
-      padding: 1rem 0.75rem 5rem;
-    }
-
-    /* Phone: today and the week first, the recovery data after. */
-    .week {
-      order: 1;
-    }
-
-    .load {
-      order: 2;
-      margin: 1.25rem 0 0;
-    }
+  .plan-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6) var(--space-12);
+  }
+  .stats div {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--space-1);
+  }
+  .stats dt {
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+  .of {
+    font-size: 0.55em;
+    color: var(--ink-muted);
+  }
+  .prediction {
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--line);
   }
 
   .sync-pill {
     position: fixed;
-    right: 1rem;
-    bottom: 1rem;
+    left: var(--space-4);
+    bottom: var(--space-4);
     z-index: 40;
-    padding: 0.45rem 0.85rem;
-    border-radius: 999px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-medium);
-    color: var(--text-secondary);
-    font-size: 0.8rem;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-pill);
+    background: var(--sheet);
+    box-shadow: var(--shadow-float);
+    color: var(--ink-muted);
+    font-size: 13px;
     pointer-events: none;
   }
 
-  .error-banner {
-    padding: 0.75rem 1rem;
-    margin-bottom: 1rem;
-    border-radius: 8px;
-    background: var(--danger-bg);
-    color: var(--danger);
-    font-size: 0.85rem;
+  @media (max-width: 1200px) {
+    .layout.coach-open {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 800px) {
+    main {
+      gap: var(--space-8);
+      padding: var(--space-4) var(--space-4) calc(56px + var(--space-8));
+    }
+    .sync-pill {
+      bottom: calc(56px + var(--space-4));
+    }
   }
 </style>
