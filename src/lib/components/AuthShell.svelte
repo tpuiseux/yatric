@@ -10,8 +10,9 @@
    * the bib on the right (the brand's one bold picture), and the language.
    */
   interface Props {
-    title: string;
-    subtitle: string;
+    /** Without one, the wordmark stands alone with what the name means. */
+    title?: string;
+    subtitle?: string;
     children: Snippet;
   }
 
@@ -33,11 +34,17 @@
 
 <div class="shell">
   <main>
-    <Logo size={32} />
-    <div class="heading">
-      <h1 class="title-l">{title}</h1>
-      <p class="muted">{subtitle}</p>
-    </div>
+    <!-- Without a title, the brand is the page's heading. -->
+    <svelte:element this={title ? "div" : "h1"} class="brand">
+      <Logo size={32} />
+      <span class="muted">Yet Another Triathlon Coach</span>
+    </svelte:element>
+    {#if title}
+      <div class="heading">
+        <h1 class="title-l">{title}</h1>
+        {#if subtitle}<p class="muted">{subtitle}</p>{/if}
+      </div>
+    {/if}
     {@render children()}
     <div class="chips lang" role="group" aria-label="Language">
       {#each LOCALES as l (l)}
@@ -72,6 +79,15 @@
     max-width: 440px;
     margin: 0 auto;
     padding: var(--space-12) var(--space-6);
+  }
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    font-size: 15px;
+    line-height: 22px;
+    font-weight: 500;
+    letter-spacing: 0;
   }
   .heading {
     display: flex;

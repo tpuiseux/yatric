@@ -559,8 +559,6 @@ export const en = {
 
   auth: {
     tagline: "The plan, the week and the coach, all the way to race day.",
-    loginTitle: "Welcome back",
-    loginSubtitle: "Log in to your training plan.",
     signupTitle: "Create your account",
     signupSubtitle: "Then the coach builds your plan with you.",
     pageLogin: "Log in",

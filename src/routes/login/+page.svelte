@@ -20,7 +20,7 @@
   <title>{m.auth.pageLogin} · Yatric</title>
 </svelte:head>
 
-<AuthShell title={m.auth.loginTitle} subtitle={m.auth.loginSubtitle}>
+<AuthShell>
   <form method="POST" use:enhance>
     {#if form?.error}
       <p class="notice error" role="alert">{m.auth.errors[form.error]?.(form.n ?? 0)}</p>

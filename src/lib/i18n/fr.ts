@@ -551,8 +551,6 @@ export const fr: Messages = {
 
   auth: {
     tagline: "Le plan, la semaine et le coach, jusqu'au jour J.",
-    loginTitle: "Content de te revoir",
-    loginSubtitle: "Connecte-toi à ton plan d'entraînement.",
     signupTitle: "Crée ton compte",
     signupSubtitle: "Ensuite, le coach construit ton plan avec toi.",
     pageLogin: "Connexion",
