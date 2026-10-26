@@ -257,8 +257,8 @@
                 {formatSpeed(
                   1000 / review.easyRuns.pace,
                   speedDisplay("run", settings)
-                )}{#if review.easyRuns.heartrate}<span class="of">
-                    · {Math.round(review.easyRuns.heartrate)} bpm</span
+                )}{#if review.easyRuns.heartrate}<span class="of"
+                    >{" "}· {Math.round(review.easyRuns.heartrate)} bpm</span
                   >{/if}
               </dd>
             </div>
