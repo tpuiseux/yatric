@@ -101,17 +101,23 @@ function stepSeconds(step: WorkoutStep): number {
 export interface ProfileStep {
   zone: Intensity;
   seconds: number;
+  step: WorkoutStep;
+  /** Which round of its repeat set, e.g. [2, 5]. */
+  round?: [number, number];
 }
 
 /** The workout as a row of steps the watch will run, repeats unrolled. */
 export function workoutProfile(structure: StructuredWorkout | undefined): ProfileStep[] {
   if (!structure) return [];
   const out: ProfileStep[] = [];
-  const add = (step: WorkoutStep) => out.push({ zone: stepZone(step), seconds: stepSeconds(step) });
+  const add = (step: WorkoutStep, round?: [number, number]) =>
+    out.push({ zone: stepZone(step), seconds: stepSeconds(step), step, round });
   for (const step of structure.warmup ?? []) add(step);
   for (const item of structure.main ?? []) {
     if ("repeats" in item) {
-      for (let r = 0; r < item.repeats; r++) for (const step of item.steps) add(step);
+      for (let r = 0; r < item.repeats; r++) {
+        for (const step of item.steps) add(step, [r + 1, item.repeats]);
+      }
     } else {
       add(item);
     }

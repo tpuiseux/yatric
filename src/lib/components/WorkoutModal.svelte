@@ -3,7 +3,6 @@
   import { base } from "$app/paths";
   import type { Workout, TrainingDay, Sport, WorkoutType } from "../../schema/training-plan.js";
   import type { Settings } from "../settings.js";
-  import { getZoneInfo } from "../utils.js";
   import {
     FEELINGS,
     type Feeling,
@@ -11,7 +10,7 @@
     type WorkoutFeedback,
   } from "../trainingLog.js";
   import { getI18n } from "../i18n/index.js";
-  import { distance as formatDistance, activityParts } from "../format.js";
+  import { distance as formatDistance, activityParts, stepParts } from "../format.js";
   import { intensityOf, workoutProfile } from "../intensity.js";
   import { isGarminConnectSupported } from "../garminSports.js";
   import ActivityAnalysis from "./ActivityAnalysis.svelte";
@@ -312,6 +311,14 @@
   );
   const profile = $derived(workoutProfile(displayWorkout.structure));
   const profileMinutes = $derived(Math.round(profile.reduce((s, p) => s + p.seconds, 0) / 60));
+  // The block picked in the profile, whose length and pace show beneath it.
+  let picked = $state<number | null>(null);
+  const pickedStep = $derived(picked === null ? null : profile[picked]);
+  const pickedParts = $derived(
+    pickedStep
+      ? stepParts(pickedStep.step, pickedStep.seconds, displayWorkout.sport, settings, fmt, m)
+      : null
+  );
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -347,7 +354,7 @@
 
     <div class="body">
       {#if currentMode === "view"}
-        {#if displayWorkout.durationMinutes || displayWorkout.distanceMeters || displayWorkout.primaryZone}
+        {#if displayWorkout.durationMinutes || displayWorkout.distanceMeters}
           <div class="figures">
             {#if displayWorkout.durationMinutes}
               <div class="figure">
@@ -368,22 +375,35 @@
                 <span class="small muted">{m.drawer.distance}</span>
               </div>
             {/if}
-            {#if displayWorkout.primaryZone}
-              <div class="figure zone">
-                <span class="zone-value"
-                  >{getZoneInfo(displayWorkout.sport, displayWorkout.primaryZone, settings)}</span
-                >
-                <span class="small muted">{m.drawer.zone}</span>
-              </div>
-            {/if}
           </div>
         {/if}
 
         {#if profile.length > 1}
           <div>
-            <div class="profile" role="img" aria-label={m.drawer.profile(profileMinutes)}>
-              {#each profile as step, i (i)}
-                <span class="step {step.zone}" style:flex-grow={step.seconds}></span>
+            <div
+              class="profile"
+              class:picking={picked !== null}
+              role="group"
+              aria-label={m.drawer.profile(profileMinutes)}
+            >
+              {#each profile as p, i (i)}
+                {@const parts = stepParts(
+                  p.step,
+                  p.seconds,
+                  displayWorkout.sport,
+                  settings,
+                  fmt,
+                  m
+                )}
+                <button
+                  type="button"
+                  class="step {p.zone}"
+                  class:on={picked === i}
+                  style:flex-grow={p.seconds}
+                  aria-pressed={picked === i}
+                  aria-label={[parts.name, parts.length, parts.target].filter(Boolean).join(", ")}
+                  onclick={() => (picked = picked === i ? null : i)}
+                ></button>
               {/each}
             </div>
             <div class="profile-legend num">
@@ -391,11 +411,24 @@
                 >{profileMinutes} min</span
               >
             </div>
+            {#if pickedStep && pickedParts}
+              <div class="picked">
+                <span class="picked-name first-cap"
+                  >{pickedParts.name}{#if pickedStep.round}<span class="muted"
+                      >, {m.drawer.round(pickedStep.round[0], pickedStep.round[1])}</span
+                    >{/if}</span
+                >
+                <span class="num">
+                  <strong>{pickedParts.length}</strong>{#if pickedParts.time}<span class="muted"
+                      >, {m.drawer.about(pickedParts.time)}</span
+                    >{/if}
+                </span>
+                {#if pickedParts.target}
+                  <span class="num">{pickedParts.target}</span>
+                {/if}
+              </div>
+            {/if}
           </div>
-        {/if}
-
-        {#if displayWorkout.description}
-          <p class="description">{displayWorkout.description}</p>
         {/if}
 
         {#if displayWorkout.humanReadable}
@@ -813,11 +846,6 @@
     flex-direction: column;
     gap: var(--space-1);
   }
-  .zone-value {
-    font-size: 16px;
-    line-height: 32px;
-    font-weight: 650;
-  }
   .profile {
     display: flex;
     align-items: flex-end;
@@ -830,8 +858,21 @@
   .step {
     flex-basis: 0;
     min-width: 3px;
+    padding: 0;
+    border: 0;
     border-radius: 2px 2px 0 0;
     background: var(--z2);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+  }
+  .step:hover {
+    filter: brightness(1.1);
+  }
+  .picking .step:not(.on) {
+    opacity: 0.45;
+  }
+  .step.on {
+    box-shadow: 0 0 0 2px var(--ink);
   }
   .step.z1 {
     height: 20%;
@@ -861,6 +902,20 @@
   }
   .description {
     max-width: 65ch;
+  }
+  .picked {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-4);
+    margin-top: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-s);
+    background: var(--sunk);
+  }
+  .picked-name {
+    flex-basis: 100%;
+    font-weight: 650;
   }
   .steps {
     max-width: 65ch;
