@@ -623,6 +623,13 @@ export const fr: Messages = {
       "Parle de ta course et de ta pratique au coach. Il fait le point sur ton niveau, te propose les grandes lignes à valider, puis écrit le plan semaine par semaine. Ça prend quelques minutes.",
     notConfigured:
       "Le coach n'est pas encore configuré sur ce serveur : il lui faut une clé API Anthropic.",
+    garmin: "Ton historique Garmin",
+    garminConnect:
+      "Connecte d'abord Garmin : le coach analyse ton entraînement récent pour fixer ton niveau, tes zones et le volume de départ, et les champs ci-dessous se remplissent tout seuls.",
+    garminEmpty:
+      "Rien d'enregistré sur Garmin ces 8 dernières semaines. Synchronise, ou remplis les champs ci-dessous toi-même.",
+    garminFilled: (n: number) =>
+      `Le coach analysera ton historique Garmin. Ta pratique actuelle ci-dessous en est tirée (${n} activités sur les 4 dernières semaines) : vérifie-la.`,
     race: "La course",
     raceName: "Nom",
     raceNamePlaceholder: "Marathon de Toulouse",
