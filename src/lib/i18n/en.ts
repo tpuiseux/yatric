@@ -621,6 +621,15 @@ export const en = {
     toRace: "to race day",
     weekOf: (week: number, total: number) => `week ${week} of ${total}`,
     starts: (date: string) => `starts ${date}`,
+    resume: "Resume",
+    draftStatus: {
+      assessing: "the coach is assessing",
+      awaiting_confirmation: "the coach's assessment awaits your answer",
+      generating: "the coach is writing the plan",
+      ready: "plan ready to confirm",
+      failed: "the coach stopped",
+      adopted: "",
+    },
   },
 
   builder: {
