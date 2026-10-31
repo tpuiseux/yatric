@@ -1,5 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { all } from "../db/client.js";
+import type { DraftStatus } from "$lib/planDraft.js";
 
 interface PlanRow {
   id: string;
@@ -21,5 +22,13 @@ export const load: PageServerLoad = async ({ locals }) => {
     [locals.user!.id]
   );
 
-  return { user: locals.user, plans };
+  // Plans the coach is still writing (or waiting on): they only reach `plans`
+  // once adopted, so without these an athlete who leaves loses the way back.
+  const drafts = all<{ id: number; status: DraftStatus; race: string | null }>(
+    `SELECT id, status, json_extract(form, '$.raceName') AS race FROM plan_drafts
+     WHERE user_id = ? AND status != 'adopted' ORDER BY id DESC LIMIT 5`,
+    [locals.user!.id]
+  );
+
+  return { user: locals.user, plans, drafts };
 };

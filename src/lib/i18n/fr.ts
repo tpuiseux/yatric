@@ -614,6 +614,15 @@ export const fr: Messages = {
     toRace: "avant la course",
     weekOf: (week: number, total: number) => `semaine ${week} sur ${total}`,
     starts: (date: string) => `début le ${date}`,
+    resume: "Reprendre",
+    draftStatus: {
+      assessing: "le coach fait le point",
+      awaiting_confirmation: "le bilan du coach attend ta réponse",
+      generating: "le coach écrit le plan",
+      ready: "plan prêt, à valider",
+      failed: "le coach s'est interrompu",
+      adopted: "",
+    },
   },
 
   builder: {

@@ -110,6 +110,17 @@
     <p class="notice" class:error={importStatus.isError} role="status">{importStatus.message}</p>
   {/if}
 
+  {#if data.drafts.length}
+    <div class="drafts">
+      {#each data.drafts as draft (draft.id)}
+        <p class="notice" class:error={draft.status === "failed"}>
+          <span><b>{draft.race}</b> · {m.home.draftStatus[draft.status]}</span>
+          <a class="btn btn-sm" href="{base}/plans/new/{draft.id}">{m.home.resume}</a>
+        </p>
+      {/each}
+    </div>
+  {/if}
+
   {#if data.plans.length === 0}
     <div class="empty">
       <h2 class="title-m">{m.home.emptyTitle}</h2>
@@ -142,6 +153,17 @@
 </main>
 
 <style>
+  .drafts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .drafts p {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
   .bar {
     display: flex;
     align-items: center;
