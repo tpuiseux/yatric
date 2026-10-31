@@ -1,7 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { goto } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
   import { base } from "$app/paths";
+  import GarminConnect from "$lib/components/GarminConnect.svelte";
   import Logo from "$lib/components/Logo.svelte";
   import { getI18n } from "$lib/i18n/index.js";
   import {
@@ -54,6 +55,14 @@
     longRideDay: "saturday",
     legsKm: null,
     skiHoursPerWeek: 2,
+  });
+
+  // Garmin's numbers replace the defaults, and again after each sync.
+  $effect(() => {
+    const snapshot = data.garmin.snapshot;
+    if (!snapshot) return;
+    const { activities: _, ...fields } = snapshot;
+    untrack(() => Object.assign(form, fields));
   });
 
   const run = $derived(form.sport === "run");
@@ -121,6 +130,24 @@
 
   {#if !data.configured}
     <p class="notice error">{m.builder.notConfigured}</p>
+  {/if}
+
+  {#if data.garmin.available || data.garmin.snapshot}
+    <section class="garmin">
+      <h2 class="title-m">{m.builder.garmin}</h2>
+      <p>
+        {#if data.garmin.snapshot}
+          {m.builder.garminFilled(data.garmin.snapshot.activities)}
+        {:else if data.garmin.connected}
+          {m.builder.garminEmpty}
+        {:else}
+          {m.builder.garminConnect}
+        {/if}
+      </p>
+      {#if data.garmin.available}
+        <GarminConnect onSynced={() => invalidateAll()} />
+      {/if}
+    </section>
   {/if}
 
   <form onsubmit={submit}>
@@ -462,6 +489,13 @@
     flex-direction: column;
     gap: var(--space-3);
     max-width: 65ch;
+  }
+  .garmin {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--line);
   }
   form {
     display: flex;

@@ -629,6 +629,13 @@ export const en = {
     intro:
       "Tell the coach about your race and your running. It assesses where you stand and suggests an outline for you to confirm, then writes the plan week by week. It takes a few minutes.",
     notConfigured: "The coach isn't set up on this server yet: it needs an Anthropic API key.",
+    garmin: "Your Garmin history",
+    garminConnect:
+      "Connect Garmin first: the coach analyses your recent training to set your level, your zones and the starting volume, and the fields below fill themselves in.",
+    garminEmpty:
+      "Nothing recorded on Garmin in the last 8 weeks. Sync, or fill in the fields below yourself.",
+    garminFilled: (n: number) =>
+      `The coach will analyse your Garmin history. Your current training below comes from it (${n} activities over the last 4 weeks): check it.`,
     race: "The race",
     raceName: "Name",
     raceNamePlaceholder: "Toulouse Marathon",
