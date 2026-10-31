@@ -60,14 +60,25 @@ export function parsePlanForm(input: unknown, today: string): PlanForm {
   if (!isIsoDate(input.raceDate)) throw new ValidationError("Race date is missing");
   const raceDate = input.raceDate;
 
-  const sport = input.sport === "triathlon" ? "triathlon" : "run";
+  const sport =
+    input.sport === "triathlon" || input.sport === "snow-triathlon" ? input.sport : "run";
   const tri = sport === "triathlon";
-  const distance = input.distance as RaceDistanceKey;
+  const snow = sport === "snow-triathlon";
+  const distance = (snow ? "other" : input.distance) as RaceDistanceKey;
   const known = tri
     ? distance in TRI_DISTANCES
     : distance in RACE_DISTANCES || distance === "other";
   if (!known) throw new ValidationError("Pick the race distance");
-  const distanceKm = distance === "other" ? num(input.distanceKm, 1, 400, "Distance") : null;
+  const legs = isPlainObject(input.legsKm) ? input.legsKm : {};
+  const legsKm = snow
+    ? {
+        run: num(legs.run, 1, 60, "Run leg"),
+        bike: num(legs.bike, 1, 150, "Bike leg"),
+        ski: num(legs.ski, 1, 60, "Ski leg"),
+      }
+    : null;
+  const distanceKm =
+    distance === "other" && !snow ? num(input.distanceKm, 1, 400, "Distance") : null;
 
   const goalTime = text(input.goalTime, 20);
   if (goalTime && !/^\d{1,2}:\d{2}(:\d{2})?$/.test(goalTime)) {
@@ -107,7 +118,7 @@ export function parsePlanForm(input: unknown, today: string): PlanForm {
     raceDate,
     distance,
     distanceKm,
-    terrain: !tri && input.terrain === "trail" ? "trail" : "road",
+    terrain: sport === "run" && input.terrain === "trail" ? "trail" : "road",
     elevationGainM: optionalNum(input.elevationGainM, 0, 20000, "Elevation gain"),
     goalTime,
     startDate,
@@ -127,8 +138,10 @@ export function parsePlanForm(input: unknown, today: string): PlanForm {
     language: input.language === "fr" ? "fr" : "en",
     notes: text(input.notes),
     swimKmPerWeek: tri ? num(input.swimKmPerWeek, 0, 60, "Weekly swimming") : null,
-    bikeHoursPerWeek: tri ? num(input.bikeHoursPerWeek, 0, 40, "Weekly cycling") : null,
-    ftp: tri ? optionalNum(input.ftp, 50, 600, "FTP") : null,
+    bikeHoursPerWeek: tri || snow ? num(input.bikeHoursPerWeek, 0, 40, "Weekly cycling") : null,
+    ftp: tri || snow ? optionalNum(input.ftp, 50, 600, "FTP") : null,
+    legsKm,
+    skiHoursPerWeek: snow ? num(input.skiHoursPerWeek, 0, 40, "Weekly ski touring") : null,
     css,
     longRideDay,
   };
@@ -161,8 +174,9 @@ export function weekFrames(startDate: string, raceDate: string): WeekFrame[] {
   });
 }
 
-/** The race's distances in km: the run's, and the swim's and bike's for a triathlon. */
+/** The race's distances in km: each leg's for a triathlon, else the run's. */
 export function raceDistances(form: PlanForm): NonNullable<RaceStrategy["event"]["distances"]> {
+  if (form.sport === "snow-triathlon") return { ...form.legsKm! };
   if (form.sport === "triathlon") {
     const { swim, bike, run } = TRI_DISTANCES[form.distance as keyof typeof TRI_DISTANCES];
     return { swim, bike, run };

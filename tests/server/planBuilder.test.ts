@@ -228,7 +228,7 @@ describe("plan builder", () => {
       parsePlanForm({ ...TRI, swimKmPerWeek: 4, bikeHoursPerWeek: 3, css: "fast" }, "2026-10-17")
     ).toThrow(/CSS/);
 
-    expect(() => parseAssessment(ASSESSMENT, 3, true)).toThrow(/zones.bike/);
+    expect(() => parseAssessment(ASSESSMENT, 3, "triathlon")).toThrow(/zones.bike/);
     const swim = {
       css: "1:50/100m",
       cssSeconds: 110,
@@ -240,7 +240,24 @@ describe("plan builder", () => {
       })),
     };
     const zones = { ...ZONES, bike: { hr: ZONES.run.hr }, swim };
-    expect(parseAssessment({ ...ASSESSMENT, zones }, 3, true).zones.swim?.cssSeconds).toBe(110);
+    expect(parseAssessment({ ...ASSESSMENT, zones }, 3, "triathlon").zones.swim?.cssSeconds).toBe(
+      110
+    );
+
+    // A snow triathlon: its own leg distances, bike zones but no swim.
+    const SNOW = { ...FORM, sport: "snow-triathlon", distance: "half", bikeHoursPerWeek: 3 };
+    const snow = parsePlanForm(
+      { ...SNOW, legsKm: { run: 6, bike: 12, ski: 5 }, skiHoursPerWeek: 2 },
+      "2026-10-17"
+    );
+    expect(snow).toMatchObject({ distance: "other", distanceKm: null, swimKmPerWeek: null });
+    expect(raceDistances(snow)).toEqual({ run: 6, bike: 12, ski: 5 });
+    expect(() => parsePlanForm({ ...SNOW, skiHoursPerWeek: 2 }, "2026-10-17")).toThrow(/Run leg/);
+    const noSwim = { ...ZONES, bike: { hr: ZONES.run.hr } };
+    expect(
+      parseAssessment({ ...ASSESSMENT, zones: noSwim }, 3, "snow-triathlon").zones.bike
+    ).toBeTruthy();
+    expect(() => parseAssessment(ASSESSMENT, 3, "snow-triathlon")).toThrow(/zones.bike/);
   });
 
   it("assesses, takes changes, writes week by week, and adopts the plan", async () => {

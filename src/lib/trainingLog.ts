@@ -52,6 +52,10 @@ const ACTIVITY_SPORTS: Record<string, Sport> = {
   MountainBikeRide: "bike",
   VirtualRide: "bike",
   Swim: "swim",
+  // Garmin keys the bridge has no name for come through title-cased.
+  BackcountrySki: "ski",
+  BackcountrySkiing: "ski",
+  BackcountrySkiingSnowboardingWs: "ski",
   WeightTraining: "strength",
 };
 
@@ -66,9 +70,10 @@ const MATCHING_SPORTS: Partial<Record<Sport, Sport[]>> = {
   run: ["run"],
   bike: ["bike"],
   swim: ["swim"],
+  ski: ["ski"],
   strength: ["strength"],
   brick: ["bike", "run"],
-  race: ["run", "bike", "swim"],
+  race: ["run", "bike", "swim", "ski"],
 };
 
 export interface DayMatch {

@@ -60,8 +60,8 @@ function checkHrZones(hr: unknown, path: string): void {
   }
 }
 
-/** A triathlon's bike and swim zones, in the shapes Settings reads. */
-function checkTriZones(input: Record<string, unknown>): void {
+/** A triathlon's bike zones, and swim zones but in the snow, in the shapes Settings reads. */
+function checkTriZones(input: Record<string, unknown>, swimToo: boolean): void {
   const bike = input.bike as Record<string, unknown> | undefined;
   req(isPlainObject(bike), null, "a triathlon needs zones.bike (hr, and power with an FTP)");
   checkHrZones(bike!.hr, "zones.bike.hr");
@@ -83,6 +83,7 @@ function checkTriZones(input: Record<string, unknown>): void {
       "zones.bike.power needs ftp and zones of {zone, name, percentLow, percentHigh, wattsLow, wattsHigh}"
     );
   }
+  if (!swimToo) return;
   const swim = input.swim as Record<string, unknown> | undefined;
   req(
     isPlainObject(swim) &&
@@ -103,11 +104,11 @@ function checkTriZones(input: Record<string, unknown>): void {
   );
 }
 
-function parseZones(input: unknown, triathlon: boolean): AthleteZones {
+function parseZones(input: unknown, sport: PlanForm["sport"]): AthleteZones {
   req(isPlainObject(input) && isPlainObject(input.run), null, "zones.run is required");
   const run = (input as { run: Record<string, unknown> }).run;
   checkHrZones(run.hr, "zones.run.hr");
-  if (triathlon) checkTriZones(input as Record<string, unknown>);
+  if (sport !== "run") checkTriZones(input as Record<string, unknown>, sport === "triathlon");
   const pace = run.pace as Record<string, unknown> | undefined;
   req(
     isPlainObject(pace) &&
@@ -163,7 +164,7 @@ function parsePhases(input: unknown, totalWeeks: number): TrainingPhase[] {
 export function parseAssessment(
   input: unknown,
   totalWeeks: number,
-  triathlon = false
+  sport: PlanForm["sport"] = "run"
 ): PlanAssessment {
   req(isPlainObject(input), null, "assessment input must be an object");
   const i = input as Record<string, unknown>;
@@ -190,7 +191,7 @@ export function parseAssessment(
     message: message.trim(),
     goalTime,
     assessment: a as unknown as PlanAssessment["assessment"],
-    zones: parseZones(i.zones, triathlon),
+    zones: parseZones(i.zones, sport),
     phases: parsePhases(i.phases, totalWeeks),
   };
 }

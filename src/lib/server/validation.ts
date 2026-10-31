@@ -21,7 +21,16 @@ import { FEELINGS, type Feeling } from "../trainingLog.js";
 
 export class ValidationError extends Error {}
 
-const SPORTS: readonly Sport[] = ["swim", "bike", "run", "strength", "brick", "race", "rest"];
+const SPORTS: readonly Sport[] = [
+  "swim",
+  "bike",
+  "run",
+  "ski",
+  "strength",
+  "brick",
+  "race",
+  "rest",
+];
 const WORKOUT_TYPES: readonly WorkoutType[] = [
   "rest",
   "recovery",

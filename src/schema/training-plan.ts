@@ -12,7 +12,8 @@
 // Core Types
 // ============================================================================
 
-export type Sport = "swim" | "bike" | "run" | "strength" | "brick" | "race" | "rest";
+/** ski: ski touring (ski de randonnée), for snow triathlons. */
+export type Sport = "swim" | "bike" | "run" | "ski" | "strength" | "brick" | "race" | "rest";
 
 export type WorkoutType =
   | "rest"
@@ -321,12 +322,14 @@ export interface RaceStrategy {
       swim?: number;
       bike?: number;
       run?: number;
+      ski?: number;
     };
   };
   pacing: {
     swim?: { target: string; notes: string };
     bike?: { targetPower: string; targetHR: string; notes: string };
     run?: { targetPace: string; targetHR: string; notes: string };
+    ski?: { targetHR: string; notes: string };
   };
   nutrition: {
     preRace: string;

@@ -78,7 +78,7 @@ const TOOL_DEFS: Anthropic.Beta.Messages.BetaTool[] = [
         zones: {
           type: "object",
           description:
-            "{run: {hr: {...}, pace: {...}}} as in the format section; for a triathlon also bike and swim",
+            "{run: {hr: {...}, pace: {...}}} as in the format section; for a triathlon also bike and swim, for a snow triathlon also bike",
         },
         phases: {
           type: "array",
@@ -114,7 +114,7 @@ const TOOL_DEFS: Anthropic.Beta.Messages.BetaTool[] = [
   {
     name: "finish_plan",
     description:
-      "Finish the plan once every week is written, with the race strategy: {pacing: {run: {targetPace, targetHR, notes}} (for a triathlon also swim: {target, notes} and bike: {targetPower, targetHR, notes}), nutrition: {preRace, during: {carbsPerHour, fluidPerHour, products: string[]}, notes}, taper: {startDate, volumeReduction (%), notes}, raceDay: {wakeUpTime?, preRaceMeal?, warmUp?, mentalCues?: string[]}}.",
+      "Finish the plan once every week is written, with the race strategy: {pacing: {run: {targetPace, targetHR, notes}} (for a triathlon also swim: {target, notes} and bike: {targetPower, targetHR, notes}; for a snow triathlon bike and ski: {targetHR, notes}), nutrition: {preRace, during: {carbsPerHour, fluidPerHour, products: string[]}, notes}, taper: {startDate, volumeReduction (%), notes}, raceDay: {wakeUpTime?, preRaceMeal?, warmUp?, mentalCues?: string[]}}.",
     input_schema: {
       type: "object",
       properties: { raceStrategy: { type: "object" } },
@@ -188,7 +188,7 @@ function runTool(
         );
       }
       updateDraft(draftId, {
-        assessment: parseAssessment(input, frames.length, draft.form.sport === "triathlon"),
+        assessment: parseAssessment(input, frames.length, draft.form.sport ?? "run"),
       });
       return "Shown to the athlete. Stop here and wait for their answer.";
     }

@@ -42,7 +42,7 @@ export type Weekday = (typeof WEEKDAYS)[number];
 
 export interface PlanForm {
   /** Drafts made before triathlon have none: running. */
-  sport: "run" | "triathlon";
+  sport: "run" | "triathlon" | "snow-triathlon";
   raceName: string;
   raceDate: string;
   distance: RaceDistanceKey;
@@ -70,10 +70,14 @@ export interface PlanForm {
   units: "kilometers" | "miles";
   language: "en" | "fr";
   notes: string;
-  // Triathlon only (null or empty otherwise).
+  // Triathlons only (null or empty otherwise).
   swimKmPerWeek: number | null;
   bikeHoursPerWeek: number | null;
   ftp: number | null;
+  /** Snow triathlon: run, bike then ski touring, in km - no standard distances. The ski
+   * leg's climbing goes in elevationGainM. */
+  legsKm: { run: number; bike: number; ski: number } | null;
+  skiHoursPerWeek: number | null;
   /** Critical swim speed per 100 m, "1:50", or empty. */
   css: string;
   longRideDay: Weekday;

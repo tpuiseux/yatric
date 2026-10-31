@@ -153,7 +153,7 @@
   let editZone = $state(untrack(() => workout?.primaryZone || ""));
   let editStructure = $state(untrack(() => workout?.humanReadable || ""));
 
-  const sports: Sport[] = ["swim", "bike", "run", "strength", "brick", "race", "rest"];
+  const sports: Sport[] = ["swim", "bike", "run", "ski", "strength", "brick", "race", "rest"];
   const workoutTypes: WorkoutType[] = [
     "rest",
     "recovery",

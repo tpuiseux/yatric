@@ -44,6 +44,9 @@ When the race is a triathlon:
 - Structures: bike steps in percent_ftp when the athlete has an FTP, else hr_zone; swim steps as distances in meters with css_offset (seconds per 100 m from CSS, negative is faster); runs as above. Give quality bike and swim sessions a structure too.
 - The race strategy's pacing covers the swim, the bike and the run.
 
+# Snow triathlon
+A snow triathlon is a run, then a bike leg (often a mountain or fat bike on snow), then ski touring (skins up, a descent): sport "ski" for ski touring sessions. Zones: zones.run, and zones.bike as for a triathlon; no swim. Ski touring sessions are timed, in hr_zone, with their climbing in the description; until the snow is there (and when it isn't), train the climb with uphill hiking or running with poles (sport "run", type "hills") or roller skis, and say so. Add transitions as bricks - run into ride, ride into skis - in the build and peak phases. The bike and ski legs are often on snow: mention technique and kit where it matters. Everything else is as for a triathlon.
+
 # Formats
 zones.run (heart rate from LTHR, paces from threshold pace; low = slower bound, high = faster bound):
 {"hr": {"lthr": 176, "zones": [{"zone": 1, "name": "Recovery", "percentLow": 0, "percentHigh": 81, "hrLow": 0, "hrHigh": 142}, {"zone": 2, "name": "Aerobic", "percentLow": 81, "percentHigh": 89, "hrLow": 143, "hrHigh": 157}, ...]},
@@ -77,6 +80,10 @@ export const PLAN_BUILDER_SYSTEM_PROMPT = [
 
 function raceLine(form: PlanForm): string {
   const d = raceDistances(form);
+  if (form.sport === "snow-triathlon") {
+    const climb = form.elevationGainM ? `, ${form.elevationGainM} m of climbing on skis` : "";
+    return `Snow triathlon (run ${d.run} km, bike ${d.bike} km, ski touring ${d.ski} km${climb})`;
+  }
   if (form.sport === "triathlon") {
     const label = TRI_DISTANCES[form.distance as keyof typeof TRI_DISTANCES].label;
     return `${label} (swim ${d.swim} km, bike ${d.bike} km, run ${d.run} km)`;
@@ -97,6 +104,7 @@ export function formMessage(
   hasGarmin: boolean
 ): string {
   const tri = form.sport === "triathlon";
+  const snow = form.sport === "snow-triathlon";
   const lines = [
     `Today is ${today}. Athlete: ${athlete}. Language for the plan: ${form.language === "fr" ? "French" : "English"}. Units: ${form.units}.`,
     "",
@@ -104,11 +112,16 @@ export function formMessage(
     `Goal time: ${form.goalTime || "none given - suggest one"}.`,
     `Plan: ${frames.length} weeks, week 1 starts Monday ${frames[0].startDate}, the race is in week ${frames.length} (${frames[frames.length - 1].startDate} to ${frames[frames.length - 1].endDate}).`,
     "",
-    `Can train on: ${form.availableDays.join(", ")}. Long run on: ${form.longRunDay}.${tri ? ` Long ride on: ${form.longRideDay}.` : ""} Runs per week: ${form.runsPerWeek}.`,
+    `Can train on: ${form.availableDays.join(", ")}. Long run on: ${form.longRunDay}.${tri || snow ? ` Long ride on: ${form.longRideDay}.` : ""} Runs per week: ${form.runsPerWeek}.`,
     `Current running: ${form.currentWeeklyKm} km/week, longest recent run ${form.longestRecentRunKm} km. Training for ${form.yearsRunning} years.`,
     ...(tri
       ? [
           `Current swimming: ${form.swimKmPerWeek} km/week, CSS ${form.css ? `${form.css}/100m` : "unknown"}. Current cycling: ${form.bikeHoursPerWeek} h/week, FTP ${form.ftp ? `${form.ftp} W` : "unknown"}.`,
+        ]
+      : []),
+    ...(snow
+      ? [
+          `Current cycling: ${form.bikeHoursPerWeek} h/week, FTP ${form.ftp ? `${form.ftp} W` : "unknown"}. Ski touring: ${form.skiHoursPerWeek} h/week lately.`,
         ]
       : []),
     `Recent races: ${form.recentRaces || "none given"}.`,
