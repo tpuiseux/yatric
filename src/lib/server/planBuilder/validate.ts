@@ -39,16 +39,13 @@ function req<T>(ok: boolean, value: T, message: string): T {
 // Assessment
 // ---------------------------------------------------------------------------
 
-function parseZones(input: unknown): AthleteZones {
-  req(isPlainObject(input) && isPlainObject(input.run), null, "zones.run is required");
-  const run = (input as { run: Record<string, unknown> }).run;
-  const hr = run.hr as Record<string, unknown> | undefined;
+function checkHrZones(hr: unknown, path: string): void {
   req(
     isPlainObject(hr) && isNum(hr.lthr) && Array.isArray(hr.zones) && hr.zones.length >= 3,
     null,
-    "zones.run.hr needs lthr and its zones"
+    `${path} needs lthr and its zones`
   );
-  for (const [i, z] of (hr!.zones as unknown[]).entries()) {
+  for (const [i, z] of ((hr as Record<string, unknown>).zones as unknown[]).entries()) {
     req(
       isPlainObject(z) &&
         (isNum(z.zone) || typeof z.zone === "string") &&
@@ -58,9 +55,60 @@ function parseZones(input: unknown): AthleteZones {
         isNum(z.percentLow) &&
         isNum(z.percentHigh),
       null,
-      `zones.run.hr.zones[${i}] needs zone, name, percentLow, percentHigh, hrLow, hrHigh`
+      `${path}.zones[${i}] needs zone, name, percentLow, percentHigh, hrLow, hrHigh`
     );
   }
+}
+
+/** A triathlon's bike zones, and swim zones but in the snow, in the shapes Settings reads. */
+function checkTriZones(input: Record<string, unknown>, swimToo: boolean): void {
+  const bike = input.bike as Record<string, unknown> | undefined;
+  req(isPlainObject(bike), null, "a triathlon needs zones.bike (hr, and power with an FTP)");
+  checkHrZones(bike!.hr, "zones.bike.hr");
+  const power = bike!.power as Record<string, unknown> | undefined;
+  if (power !== undefined) {
+    req(
+      isPlainObject(power) &&
+        isNum(power.ftp) &&
+        Array.isArray(power.zones) &&
+        power.zones.every(
+          (z) =>
+            isPlainObject(z) &&
+            isNum(z.zone) &&
+            typeof z.name === "string" &&
+            isNum(z.wattsLow) &&
+            isNum(z.wattsHigh)
+        ),
+      null,
+      "zones.bike.power needs ftp and zones of {zone, name, percentLow, percentHigh, wattsLow, wattsHigh}"
+    );
+  }
+  if (!swimToo) return;
+  const swim = input.swim as Record<string, unknown> | undefined;
+  req(
+    isPlainObject(swim) &&
+      typeof swim.css === "string" &&
+      isNum(swim.cssSeconds) &&
+      Array.isArray(swim.zones) &&
+      swim.zones.length >= 3 &&
+      swim.zones.every(
+        (z) =>
+          isPlainObject(z) &&
+          isNum(z.zone) &&
+          typeof z.name === "string" &&
+          isNum(z.paceOffset) &&
+          typeof z.pace === "string"
+      ),
+    null,
+    "a triathlon needs zones.swim: css, cssSeconds and zones of {zone, name, paceOffset, pace}"
+  );
+}
+
+function parseZones(input: unknown, sport: PlanForm["sport"]): AthleteZones {
+  req(isPlainObject(input) && isPlainObject(input.run), null, "zones.run is required");
+  const run = (input as { run: Record<string, unknown> }).run;
+  checkHrZones(run.hr, "zones.run.hr");
+  if (sport !== "run") checkTriZones(input as Record<string, unknown>, sport === "triathlon");
   const pace = run.pace as Record<string, unknown> | undefined;
   req(
     isPlainObject(pace) &&
@@ -113,7 +161,11 @@ function parsePhases(input: unknown, totalWeeks: number): TrainingPhase[] {
   return phases;
 }
 
-export function parseAssessment(input: unknown, totalWeeks: number): PlanAssessment {
+export function parseAssessment(
+  input: unknown,
+  totalWeeks: number,
+  sport: PlanForm["sport"] = "run"
+): PlanAssessment {
   req(isPlainObject(input), null, "assessment input must be an object");
   const i = input as Record<string, unknown>;
   const message = req(
@@ -139,7 +191,7 @@ export function parseAssessment(input: unknown, totalWeeks: number): PlanAssessm
     message: message.trim(),
     goalTime,
     assessment: a as unknown as PlanAssessment["assessment"],
-    zones: parseZones(i.zones),
+    zones: parseZones(i.zones, sport),
     phases: parsePhases(i.phases, totalWeeks),
   };
 }
@@ -301,7 +353,7 @@ export function parseWeek(
 export function parseRaceStrategy(
   input: unknown,
   form: PlanForm,
-  distanceKm: number
+  distances: NonNullable<RaceStrategy["event"]["distances"]>
 ): RaceStrategy {
   req(isPlainObject(input), null, "raceStrategy must be an object");
   const r = input as Record<string, unknown>;
@@ -320,7 +372,7 @@ export function parseRaceStrategy(
       date: form.raceDate,
       type:
         isPlainObject(r.event) && typeof r.event.type === "string" ? r.event.type : form.distance,
-      distances: { run: distanceKm },
+      distances,
     },
     raceDay: isPlainObject(r.raceDay) ? (r.raceDay as RaceStrategy["raceDay"]) : {},
   };

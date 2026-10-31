@@ -126,6 +126,7 @@ export function getSportIcon(sport: Sport): string {
     swim: "\u{1F3CA}",
     bike: "\u{1F6B4}",
     run: "\u{1F3C3}",
+    ski: "\u26F7",
     strength: "\u{1F4AA}",
     brick: "\u{1F525}",
     race: "\u{1F3C6}",

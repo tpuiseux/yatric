@@ -4,7 +4,13 @@
   import { base } from "$app/paths";
   import Logo from "$lib/components/Logo.svelte";
   import { getI18n } from "$lib/i18n/index.js";
-  import { RACE_DISTANCES, WEEKDAYS, type PlanForm, type Weekday } from "$lib/planDraft.js";
+  import {
+    RACE_DISTANCES,
+    TRI_DISTANCES,
+    WEEKDAYS,
+    type PlanForm,
+    type Weekday,
+  } from "$lib/planDraft.js";
   import type { PageData } from "./$types";
 
   interface Props {
@@ -17,6 +23,7 @@
   const m = $derived(i18n.m);
 
   let form = $state<PlanForm>({
+    sport: "run",
     raceName: "",
     raceDate: "",
     distance: "marathon",
@@ -40,7 +47,27 @@
     units: "kilometers",
     language: untrack(() => i18n.locale),
     notes: "",
+    swimKmPerWeek: 3,
+    bikeHoursPerWeek: 3,
+    ftp: null,
+    css: "",
+    longRideDay: "saturday",
+    legsKm: null,
+    skiHoursPerWeek: 2,
   });
+
+  const run = $derived(form.sport === "run");
+  const tri = $derived(form.sport === "triathlon");
+  const snow = $derived(form.sport === "snow-triathlon");
+
+  function setSport(sport: PlanForm["sport"]) {
+    form.sport = sport;
+    form.distance = { run: "marathon", triathlon: "olympic", "snow-triathlon": "other" }[
+      sport
+    ] as PlanForm["distance"];
+    form.legsKm = sport === "snow-triathlon" ? { run: 6, bike: 12, ski: 6 } : null;
+    form.elevationGainM = null;
+  }
 
   let submitting = $state(false);
   let errorText = $state<string | null>(null);
@@ -113,15 +140,70 @@
         <input class="input" type="date" bind:value={form.raceDate} required min={data.today} />
       </label>
       <label class="field">
-        {m.builder.distance}
-        <select class="input" bind:value={form.distance}>
-          {#each Object.keys(RACE_DISTANCES) as key (key)}
-            <option value={key}>{m.builder.distances[key]}</option>
-          {/each}
-          <option value="other">{m.builder.distances.other}</option>
+        {m.builder.sport}
+        <select
+          class="input"
+          value={form.sport}
+          onchange={(e) => setSport(e.currentTarget.value as PlanForm["sport"])}
+        >
+          <option value="run">{m.builder.sports.run}</option>
+          <option value="triathlon">{m.builder.sports.triathlon}</option>
+          <option value="snow-triathlon">{m.builder.sports["snow-triathlon"]}</option>
         </select>
       </label>
-      {#if form.distance === "other"}
+      {#if snow && form.legsKm}
+        <label class="field">
+          {m.builder.legRun}
+          <input
+            class="input"
+            type="number"
+            min="1"
+            step="0.1"
+            bind:value={form.legsKm.run}
+            required
+          />
+        </label>
+        <label class="field">
+          {m.builder.legBike}
+          <input
+            class="input"
+            type="number"
+            min="1"
+            step="0.1"
+            bind:value={form.legsKm.bike}
+            required
+          />
+        </label>
+        <label class="field">
+          {m.builder.legSki}
+          <input
+            class="input"
+            type="number"
+            min="1"
+            step="0.1"
+            bind:value={form.legsKm.ski}
+            required
+          />
+        </label>
+        <label class="field">
+          {m.builder.skiElevation}
+          <input class="input" type="number" min="0" bind:value={form.elevationGainM} />
+          <span class="field-hint">{m.builder.optional}</span>
+        </label>
+      {:else}
+        <label class="field">
+          {m.builder.distance}
+          <select class="input" bind:value={form.distance}>
+            {#each Object.keys(tri ? TRI_DISTANCES : RACE_DISTANCES) as key (key)}
+              <option value={key}>{m.builder.distances[key]}</option>
+            {/each}
+            {#if !tri}
+              <option value="other">{m.builder.distances.other}</option>
+            {/if}
+          </select>
+        </label>
+      {/if}
+      {#if run && form.distance === "other"}
         <label class="field">
           {m.builder.distanceKm}
           <input
@@ -134,14 +216,16 @@
           />
         </label>
       {/if}
-      <label class="field">
-        {m.builder.terrain}
-        <select class="input" bind:value={form.terrain}>
-          <option value="road">{m.builder.road}</option>
-          <option value="trail">{m.builder.trail}</option>
-        </select>
-      </label>
-      {#if form.terrain === "trail"}
+      {#if run}
+        <label class="field">
+          {m.builder.terrain}
+          <select class="input" bind:value={form.terrain}>
+            <option value="road">{m.builder.road}</option>
+            <option value="trail">{m.builder.trail}</option>
+          </select>
+        </label>
+      {/if}
+      {#if run && form.terrain === "trail"}
         <label class="field">
           {m.builder.elevation}
           <input class="input" type="number" min="0" bind:value={form.elevationGainM} />
@@ -182,6 +266,16 @@
           {/each}
         </select>
       </label>
+      {#if !run}
+        <label class="field">
+          {m.builder.longRideDay}
+          <select class="input" bind:value={form.longRideDay}>
+            {#each WEEKDAYS as day (day)}
+              <option value={day}>{m.builder.dayLong[day]}</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
       <label class="field">
         {m.builder.runsPerWeek}
         <input class="input" type="number" min="2" max="7" bind:value={form.runsPerWeek} required />
@@ -206,6 +300,62 @@
         {m.builder.years}
         <input class="input" type="number" min="0" bind:value={form.yearsRunning} required />
       </label>
+      {#if tri}
+        <label class="field">
+          {m.builder.swimKm}
+          <input
+            class="input"
+            type="number"
+            min="0"
+            step="0.5"
+            bind:value={form.swimKmPerWeek}
+            required
+          />
+        </label>
+      {/if}
+      {#if snow}
+        <label class="field">
+          {m.builder.skiHours}
+          <input
+            class="input"
+            type="number"
+            min="0"
+            step="0.5"
+            bind:value={form.skiHoursPerWeek}
+            required
+          />
+        </label>
+      {/if}
+      {#if !run}
+        <label class="field">
+          {m.builder.bikeHours}
+          <input
+            class="input"
+            type="number"
+            min="0"
+            step="0.5"
+            bind:value={form.bikeHoursPerWeek}
+            required
+          />
+        </label>
+        <label class="field">
+          {m.builder.ftp}
+          <input class="input" type="number" min="50" bind:value={form.ftp} />
+          <span class="field-hint">{m.builder.optional}</span>
+        </label>
+      {/if}
+      {#if tri}
+        <label class="field">
+          {m.builder.css}
+          <input
+            class="input num"
+            bind:value={form.css}
+            placeholder="1:50"
+            pattern={"\\d:\\d{2}"}
+          />
+          <span class="field-hint">{m.builder.cssHint}</span>
+        </label>
+      {/if}
       <label class="field">
         {m.builder.maxHr}
         <input class="input" type="number" bind:value={form.maxHr} />

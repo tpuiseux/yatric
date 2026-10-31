@@ -1,5 +1,6 @@
 <script lang="ts">
   import { base } from "$app/paths";
+  import type { Sport } from "../../schema/training-plan.js";
   import type { HrZone, Settings } from "../settings.js";
   import { activitySport, type RecordedActivity } from "../trainingLog.js";
   import { getI18n } from "../i18n/index.js";
@@ -30,11 +31,8 @@
   const i18n = getI18n();
   const m = $derived(i18n.m);
   const fmt = $derived(i18n.fmt);
-  const formatDistance = (
-    meters: number,
-    s: "run" | "bike" | "swim" | "strength" | "brick" | "race" | "rest",
-    st: Settings
-  ) => localDistance(meters, s, st, fmt);
+  const formatDistance = (meters: number, s: Sport, st: Settings) =>
+    localDistance(meters, s, st, fmt);
 
   let analysis = $state<ActivityAnalysis | null>(null);
   let loadError = $state<string | null>(null);
