@@ -212,6 +212,37 @@ describe("plan builder", () => {
     );
   });
 
+  it("takes a triathlon, and asks its assessment for bike and swim zones", async () => {
+    const { parsePlanForm, raceDistances } =
+      await import("../../src/lib/server/planBuilder/form.js");
+    const { parseAssessment } = await import("../../src/lib/server/planBuilder/validate.js");
+    const TRI = { ...FORM, sport: "triathlon", distance: "olympic", terrain: "trail" };
+    const form = parsePlanForm(
+      { ...TRI, swimKmPerWeek: 4, bikeHoursPerWeek: 3, css: "1:50" },
+      "2026-10-17"
+    );
+    expect(form).toMatchObject({ sport: "triathlon", terrain: "road", ftp: null, css: "1:50" });
+    expect(raceDistances(form)).toEqual({ swim: 1.5, bike: 40, run: 10 });
+    expect(() => parsePlanForm({ ...TRI, distance: "half" }, "2026-10-17")).toThrow(/distance/);
+    expect(() =>
+      parsePlanForm({ ...TRI, swimKmPerWeek: 4, bikeHoursPerWeek: 3, css: "fast" }, "2026-10-17")
+    ).toThrow(/CSS/);
+
+    expect(() => parseAssessment(ASSESSMENT, 3, true)).toThrow(/zones.bike/);
+    const swim = {
+      css: "1:50/100m",
+      cssSeconds: 110,
+      zones: [18, 10, 4].map((o, i) => ({
+        zone: i + 1,
+        name: `Z${i + 1}`,
+        paceOffset: o,
+        pace: "2:00/100m",
+      })),
+    };
+    const zones = { ...ZONES, bike: { hr: ZONES.run.hr }, swim };
+    expect(parseAssessment({ ...ASSESSMENT, zones }, 3, true).zones.swim?.cssSeconds).toBe(110);
+  });
+
   it("assesses, takes changes, writes week by week, and adopts the plan", async () => {
     const { parsePlanForm } = await import("../../src/lib/server/planBuilder/form.js");
     const { createDraft } = await import("../../src/lib/server/planBuilder/store.js");

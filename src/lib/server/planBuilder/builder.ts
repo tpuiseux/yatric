@@ -12,7 +12,7 @@ import { stampPaceReference } from "../coach/changes.js";
 import { importPlanForUser } from "../plans.js";
 import { ValidationError } from "../validation.js";
 import { todayLocal } from "../weekReview.js";
-import { addDays, raceDistanceKm, weekFrames } from "./form.js";
+import { addDays, raceDistances, weekFrames } from "./form.js";
 import { formMessage, PLAN_BUILDER_SYSTEM_PROMPT } from "./prompt.js";
 import { appendDraftMessages, getDraft, updateDraft, type Draft } from "./store.js";
 import { parseAssessment, parseRaceStrategy, parseWeek } from "./validate.js";
@@ -77,7 +77,8 @@ const TOOL_DEFS: Anthropic.Beta.Messages.BetaTool[] = [
         },
         zones: {
           type: "object",
-          description: "{run: {hr: {...}, pace: {...}}} as in the format section",
+          description:
+            "{run: {hr: {...}, pace: {...}}} as in the format section; for a triathlon also bike and swim",
         },
         phases: {
           type: "array",
@@ -113,7 +114,7 @@ const TOOL_DEFS: Anthropic.Beta.Messages.BetaTool[] = [
   {
     name: "finish_plan",
     description:
-      "Finish the plan once every week is written, with the race strategy: {pacing: {run: {targetPace, targetHR, notes}}, nutrition: {preRace, during: {carbsPerHour, fluidPerHour, products: string[]}, notes}, taper: {startDate, volumeReduction (%), notes}, raceDay: {wakeUpTime?, preRaceMeal?, warmUp?, mentalCues?: string[]}}.",
+      "Finish the plan once every week is written, with the race strategy: {pacing: {run: {targetPace, targetHR, notes}} (for a triathlon also swim: {target, notes} and bike: {targetPower, targetHR, notes}), nutrition: {preRace, during: {carbsPerHour, fluidPerHour, products: string[]}, notes}, taper: {startDate, volumeReduction (%), notes}, raceDay: {wakeUpTime?, preRaceMeal?, warmUp?, mentalCues?: string[]}}.",
     input_schema: {
       type: "object",
       properties: { raceStrategy: { type: "object" } },
@@ -186,7 +187,9 @@ function runTool(
           "The athlete already confirmed the assessment - write the weeks."
         );
       }
-      updateDraft(draftId, { assessment: parseAssessment(input, frames.length) });
+      updateDraft(draftId, {
+        assessment: parseAssessment(input, frames.length, draft.form.sport === "triathlon"),
+      });
       return "Shown to the athlete. Stop here and wait for their answer.";
     }
     case "write_week": {
@@ -225,7 +228,7 @@ function runTool(
         );
       }
       updateDraft(draftId, {
-        raceStrategy: parseRaceStrategy(input.raceStrategy, draft.form, raceDistanceKm(draft.form)),
+        raceStrategy: parseRaceStrategy(input.raceStrategy, draft.form, raceDistances(draft.form)),
         status: "ready",
         error: null,
       });

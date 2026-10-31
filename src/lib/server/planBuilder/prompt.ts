@@ -7,8 +7,8 @@ import workouts from "../reference/workouts.md?raw";
 import loadManagement from "../reference/load-management.md?raw";
 import raceDay from "../reference/race-day.md?raw";
 import type { PlanForm } from "../../planDraft.js";
-import { RACE_DISTANCES } from "../../planDraft.js";
-import { raceDistanceKm, type WeekFrame } from "./form.js";
+import { RACE_DISTANCES, TRI_DISTANCES } from "../../planDraft.js";
+import { raceDistances, type WeekFrame } from "./form.js";
 
 /**
  * Instructions for building a plan online - the coaching workflow
@@ -18,7 +18,7 @@ import { raceDistanceKm, type WeekFrame } from "./form.js";
  * stays cached; the athlete's answers go in the first message.
  */
 
-const INSTRUCTIONS = `You are an endurance running coach building a training plan for an athlete, inside their training app. The work happens in two steps, through your tools - the athlete only sees what the tools show them.
+const INSTRUCTIONS = `You are an endurance coach (running and triathlon) building a training plan for an athlete, inside their training app. The work happens in two steps, through your tools - the athlete only sees what the tools show them.
 
 # Step 1: assessment
 Assess the athlete from their answers to the app's form and, when their Garmin history is synced, from that history (get_training_history, get_activities). Distinguish foundation (what they've done over the years) from current form (the last 4-8 weeks). Then call submit_assessment with:
@@ -37,10 +37,21 @@ Once the athlete confirms, write every week in order with write_week, one call p
 - A tool may refuse a week or point out something worth fixing - fix it and call it again for that same week before moving on.
 Don't write text between tool calls in this step - nobody reads it.
 
+# Triathlon
+When the race is a triathlon:
+- Zones: zones.run as below, plus zones.bike (hr from the bike LTHR - a few beats under the run's when unknown - and power from the athlete's FTP when they give one) and zones.swim (from their CSS; when they don't give one, estimate it from their swimming and say so in the message). Formats below.
+- Balance swim, bike and run by the athlete's limiters and what the distance demands; progress the week in hours across the three sports. Put the long ride on the athlete's long-ride day and the long run on the long-run day, and add brick sessions (sport "brick": a ride straight into a short run) in the build and peak phases. The form's runs per week counts runs only.
+- Structures: bike steps in percent_ftp when the athlete has an FTP, else hr_zone; swim steps as distances in meters with css_offset (seconds per 100 m from CSS, negative is faster); runs as above. Give quality bike and swim sessions a structure too.
+- The race strategy's pacing covers the swim, the bike and the run.
+
 # Formats
 zones.run (heart rate from LTHR, paces from threshold pace; low = slower bound, high = faster bound):
 {"hr": {"lthr": 176, "zones": [{"zone": 1, "name": "Recovery", "percentLow": 0, "percentHigh": 81, "hrLow": 0, "hrHigh": 142}, {"zone": 2, "name": "Aerobic", "percentLow": 81, "percentHigh": 89, "hrLow": 143, "hrHigh": 157}, ...]},
  "pace": {"thresholdPace": "4:17/km", "thresholdPaceSeconds": 257, "zones": [{"zone": "E", "name": "Easy (E)", "pace": "5:41/km", "paceSeconds": 341, "low": "5:55/km", "high": "5:28/km"}, {"zone": "M", "name": "Marathon (M)", ...}, {"zone": "T", ...}, {"zone": "I", ...}, {"zone": "R", ...}]}}
+
+zones.bike and zones.swim (triathlon only; power only with an FTP):
+{"hr": {same shape as zones.run.hr}, "power": {"ftp": 230, "zones": [{"zone": 1, "name": "Recovery", "percentLow": 0, "percentHigh": 55, "wattsLow": 0, "wattsHigh": 126}, {"zone": 2, "name": "Endurance", "percentLow": 56, "percentHigh": 75, "wattsLow": 129, "wattsHigh": 172}, ...]}}
+{"css": "1:50/100m", "cssSeconds": 110, "zones": [{"zone": 1, "name": "Recovery", "paceOffset": 18, "pace": "2:08/100m"}, {"zone": 2, "name": "Aerobic", "paceOffset": 10, "pace": "2:00/100m"}, ...]}
 
 A run workout:
 {"sport": "run", "type": "tempo", "name": "MP + Threshold Touch", "description": "2x2km at marathon pace + 1km at threshold.", "durationMinutes": 50, "distanceMeters": 9900, "primaryZone": "Zone 3-4 (M/T)",
@@ -64,8 +75,17 @@ export const PLAN_BUILDER_SYSTEM_PROMPT = [
   "## Race day\n\n" + raceDay,
 ].join("\n\n---\n\n");
 
-function distanceLabel(form: PlanForm): string {
-  return form.distance === "other" ? `${form.distanceKm} km` : RACE_DISTANCES[form.distance].label;
+function raceLine(form: PlanForm): string {
+  const d = raceDistances(form);
+  if (form.sport === "triathlon") {
+    const label = TRI_DISTANCES[form.distance as keyof typeof TRI_DISTANCES].label;
+    return `${label} (swim ${d.swim} km, bike ${d.bike} km, run ${d.run} km)`;
+  }
+  const label =
+    form.distance === "other"
+      ? `${form.distanceKm} km`
+      : RACE_DISTANCES[form.distance as keyof typeof RACE_DISTANCES].label;
+  return `${label} (${d.run} km), ${form.terrain}${form.elevationGainM ? `, ${form.elevationGainM} m elevation gain` : ""}`;
 }
 
 /** The athlete's answers, as the first message of the conversation. */
@@ -76,15 +96,21 @@ export function formMessage(
   today: string,
   hasGarmin: boolean
 ): string {
+  const tri = form.sport === "triathlon";
   const lines = [
     `Today is ${today}. Athlete: ${athlete}. Language for the plan: ${form.language === "fr" ? "French" : "English"}. Units: ${form.units}.`,
     "",
-    `Race: ${form.raceName}, ${form.raceDate}, ${distanceLabel(form)} (${raceDistanceKm(form)} km), ${form.terrain}${form.elevationGainM ? `, ${form.elevationGainM} m elevation gain` : ""}.`,
+    `Race: ${form.raceName}, ${form.raceDate}, ${raceLine(form)}.`,
     `Goal time: ${form.goalTime || "none given - suggest one"}.`,
     `Plan: ${frames.length} weeks, week 1 starts Monday ${frames[0].startDate}, the race is in week ${frames.length} (${frames[frames.length - 1].startDate} to ${frames[frames.length - 1].endDate}).`,
     "",
-    `Can train on: ${form.availableDays.join(", ")}. Long run on: ${form.longRunDay}. Runs per week: ${form.runsPerWeek}.`,
-    `Current running: ${form.currentWeeklyKm} km/week, longest recent run ${form.longestRecentRunKm} km, running for ${form.yearsRunning} years.`,
+    `Can train on: ${form.availableDays.join(", ")}. Long run on: ${form.longRunDay}.${tri ? ` Long ride on: ${form.longRideDay}.` : ""} Runs per week: ${form.runsPerWeek}.`,
+    `Current running: ${form.currentWeeklyKm} km/week, longest recent run ${form.longestRecentRunKm} km. Training for ${form.yearsRunning} years.`,
+    ...(tri
+      ? [
+          `Current swimming: ${form.swimKmPerWeek} km/week, CSS ${form.css ? `${form.css}/100m` : "unknown"}. Current cycling: ${form.bikeHoursPerWeek} h/week, FTP ${form.ftp ? `${form.ftp} W` : "unknown"}.`,
+        ]
+      : []),
     `Recent races: ${form.recentRaces || "none given"}.`,
     `Heart rate: max ${form.maxHr ?? "unknown"}, resting ${form.restingHr ?? "unknown"}.`,
     `Injuries and health: ${form.injuries || "none mentioned"}.`,

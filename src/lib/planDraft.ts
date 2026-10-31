@@ -19,7 +19,15 @@ export const RACE_DISTANCES = {
   marathon: { label: "Marathon", km: 42.195 },
 } as const;
 
-export type RaceDistanceKey = keyof typeof RACE_DISTANCES | "other";
+/** Swim, bike and run, in km. */
+export const TRI_DISTANCES = {
+  sprint: { label: "Sprint triathlon", swim: 0.75, bike: 20, run: 5 },
+  olympic: { label: "Olympic triathlon", swim: 1.5, bike: 40, run: 10 },
+  "70.3": { label: "Half-distance triathlon (70.3)", swim: 1.9, bike: 90, run: 21.1 },
+  ironman: { label: "Full-distance triathlon (Ironman)", swim: 3.8, bike: 180, run: 42.2 },
+} as const;
+
+export type RaceDistanceKey = keyof typeof RACE_DISTANCES | keyof typeof TRI_DISTANCES | "other";
 
 export const WEEKDAYS = [
   "monday",
@@ -33,6 +41,8 @@ export const WEEKDAYS = [
 export type Weekday = (typeof WEEKDAYS)[number];
 
 export interface PlanForm {
+  /** Drafts made before triathlon have none: running. */
+  sport: "run" | "triathlon";
   raceName: string;
   raceDate: string;
   distance: RaceDistanceKey;
@@ -60,6 +70,13 @@ export interface PlanForm {
   units: "kilometers" | "miles";
   language: "en" | "fr";
   notes: string;
+  // Triathlon only (null or empty otherwise).
+  swimKmPerWeek: number | null;
+  bikeHoursPerWeek: number | null;
+  ftp: number | null;
+  /** Critical swim speed per 100 m, "1:50", or empty. */
+  css: string;
+  longRideDay: Weekday;
 }
 
 /** What the coach makes of the athlete before writing anything. */
