@@ -12,9 +12,11 @@
     prediction: RacePrediction;
     settings: Settings;
     compact?: boolean;
+    /** Saves a new goal finish time; the goal is clickable when given. */
+    onGoalChange?: (goalSeconds: number) => Promise<unknown>;
   }
 
-  let { prediction, settings, compact = false }: Props = $props();
+  let { prediction, settings, compact = false, onGoalChange }: Props = $props();
 
   const i18n = getI18n();
   const m = $derived(i18n.m);
@@ -112,15 +114,89 @@
   });
 
   let hovered = $state<number | null>(null);
+
+  // Editing the goal in place.
+  let editing = $state(false);
+  let draft = $state("");
+  let saving = $state(false);
+  let invalid = $state(false);
+
+  /** "3:30:00" -> 12600. Two fields are h:mm from a half marathon up, mm:ss below. */
+  function parseGoal(text: string): number | null {
+    const parts = text.trim().split(/[:h']/).filter(Boolean).map(Number);
+    if (parts.length < 2 || parts.length > 3 || parts.some((n) => !Number.isInteger(n) || n < 0)) {
+      return null;
+    }
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return distance >= 21000 ? parts[0] * 3600 + parts[1] * 60 : parts[0] * 60 + parts[1];
+  }
+
+  function startEdit() {
+    draft = goal !== null ? formatClock(goal) : "";
+    invalid = false;
+    editing = true;
+  }
+
+  async function saveGoal(event: SubmitEvent) {
+    event.preventDefault();
+    const value = parseGoal(draft);
+    if (!value || !onGoalChange) {
+      invalid = true;
+      return;
+    }
+    saving = true;
+    try {
+      await onGoalChange(value);
+      editing = false;
+    } catch {
+      // The page shows the request's error.
+    } finally {
+      saving = false;
+    }
+  }
 </script>
+
+{#snippet goalEditor()}
+  {#if editing}
+    <form class="goal-form" onsubmit={saveGoal}>
+      <!-- svelte-ignore a11y_autofocus -->
+      <input
+        class="num"
+        bind:value={draft}
+        aria-label={m.prediction.goalInput}
+        placeholder={distance >= 21000 ? "3:30:00" : "45:00"}
+        aria-invalid={invalid}
+        inputmode="numeric"
+        autofocus
+        onkeydown={(e) => e.key === "Escape" && (editing = false)}
+      />
+      <button type="submit" disabled={saving}>{saving ? m.common.saving : m.common.save}</button>
+      <button type="button" class="ghost" onclick={() => (editing = false)}
+        >{m.common.cancel}</button
+      >
+      <span class="hint" class:error={invalid}>
+        {invalid ? m.prediction.goalInvalid : m.prediction.goalAdapts}
+      </span>
+    </form>
+  {:else if onGoalChange}
+    <button class="goal-btn" title={m.prediction.editGoal} onclick={startEdit}>
+      {goal !== null ? m.prediction.goalShort(formatClock(goal)) : m.prediction.setGoal}
+      <span aria-hidden="true">✎</span>
+    </button>
+  {:else if goal !== null}
+    <span class="label">{m.prediction.goalShort(formatClock(goal))}</span>
+  {/if}
+{/snippet}
 
 <section class="prediction" class:compact aria-label={m.plan.prediction}>
   <span class="label">{m.prediction.label}</span>
   {#if seconds === null}
     <p class="empty">{m.prediction.empty}</p>
+    {@render goalEditor()}
   {:else}
     {#if compact}
       <span class="figure-l">{formatClock(seconds)}</span>
+      {@render goalEditor()}
       <span class="meta">
         <span class="small muted num">{formatSpeed(distance / seconds, display)}</span>
         {#if goal !== null}
@@ -148,9 +224,10 @@
           class:bad={trendText.good === false}>{trendText.text}</span
         >
       {/if}
-      {#if goal !== null}
+      {#if goal !== null && !editing}
         <span class="label">{goalLine}</span>
       {/if}
+      {@render goalEditor()}
     {/if}
 
     {#if !compact}
@@ -247,6 +324,45 @@
   .chip-gap.ahead {
     background: var(--success-soft);
     color: var(--success);
+  }
+  .goal-btn {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    text-decoration: underline dotted var(--line-strong);
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .goal-btn:hover {
+    text-decoration-color: currentColor;
+  }
+  .goal-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+  }
+  .goal-form input {
+    width: 9ch;
+    font-size: 14px;
+  }
+  .goal-form .ghost {
+    background: none;
+  }
+  .hint {
+    flex-basis: 100%;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+  .hint.error {
+    color: var(--warning);
   }
   .trend {
     font-size: 13px;

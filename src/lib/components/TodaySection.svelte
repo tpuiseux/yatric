@@ -25,6 +25,7 @@
     onWorkoutClick: (workout: Workout, day: TrainingDay) => void;
     onAskCoach: (text: string) => void;
     onOpenRecovery: () => void;
+    onGoalChange?: (goalSeconds: number) => Promise<unknown>;
   }
 
   let {
@@ -37,6 +38,7 @@
     onWorkoutClick,
     onAskCoach,
     onOpenRecovery,
+    onGoalChange,
   }: Props = $props();
 
   const i18n = getI18n();
@@ -95,7 +97,7 @@
 
   {#if prediction}
     <div class="cell">
-      <RacePrediction {prediction} {settings} compact />
+      <RacePrediction {prediction} {settings} compact {onGoalChange} />
     </div>
   {/if}
 

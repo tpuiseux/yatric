@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { addWorkout, moveWorkout, updatePlanSettings } from "../../src/lib/server/planMutations.js";
+import {
+  addWorkout,
+  moveWorkout,
+  setGoalTime,
+  updatePlanSettings,
+} from "../../src/lib/server/planMutations.js";
+import { raceTarget } from "../../src/lib/racePrediction.js";
 import { visibleWorkouts } from "../../src/lib/utils.js";
 import { buildZonesFromSettings, deriveSettingsFromPlan } from "../../src/lib/settings.js";
 import type { TrainingPlan, Workout } from "../../src/schema/training-plan.js";
@@ -87,5 +93,50 @@ describe("visibleWorkouts", () => {
       { ...mon.workouts[0], id: "x", sport: "run" } as Workout,
     ];
     expect(visibleWorkouts(mixed).map((w) => w.id)).toEqual(["b1", "x"]);
+  });
+});
+
+describe("setGoalTime", () => {
+  function marathon(): TrainingPlan {
+    const plan = structuredClone(sample) as unknown as TrainingPlan;
+    plan.raceStrategy.event.distances = { run: 42.195 };
+    plan.zones.run!.pace = {
+      thresholdPace: "4:00/km",
+      thresholdPaceSeconds: 240,
+      zones: [
+        {
+          zone: "E",
+          name: "Easy",
+          pace: "5:00/km",
+          paceSeconds: 300,
+          low: "5:10/km",
+          high: "4:50/km",
+        },
+      ],
+      goalTime: "3:00:00",
+    } as unknown as NonNullable<TrainingPlan["zones"]["run"]>["pace"];
+    return plan;
+  }
+
+  it("moves the goal, race pace and every pace zone together", () => {
+    const plan = setGoalTime(marathon(), 3.3 * 3600); // 3:18:00, 10% slower
+    const pace = plan.zones.run!.pace!;
+    expect(raceTarget(plan)!.goalSeconds).toBe(11880);
+    expect((pace as unknown as { goalTime: string }).goalTime).toBe("3:18:00");
+    expect(pace.thresholdPace).toBe("4:24/km");
+    expect(pace.thresholdPaceSeconds).toBe(264);
+    expect(pace.zones[0]).toMatchObject({
+      pace: "5:30/km",
+      paceSeconds: 330,
+      low: "5:41/km",
+      high: "5:19/km",
+    });
+    expect(plan.raceStrategy.pacing.run!.targetPace).toBe("4:42/km");
+  });
+
+  it("refuses an impossible goal and a plan with no running race", () => {
+    expect(() => setGoalTime(marathon(), 600)).toThrow(/out of range/);
+    const tri = structuredClone(sample) as unknown as TrainingPlan;
+    expect(() => setGoalTime(tri, 12000)).toThrow(/no running race/);
   });
 });

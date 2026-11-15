@@ -5,6 +5,9 @@ import type {
   UnitPreferences,
 } from "../../schema/training-plan.js";
 import { isRestPlaceholder } from "../utils.js";
+import { raceTarget } from "../racePrediction.js";
+import { paceToSeconds, secondsToPace } from "../settings.js";
+import { ValidationError } from "./validation.js";
 
 /**
  * Direct, immediate mutations on a plan object. The DB row is the single
@@ -143,6 +146,56 @@ export function updatePlanSettings(
     }
   }
   plan.zones = update.zones;
+  plan.meta.updatedAt = new Date().toISOString();
+  return plan;
+}
+
+/** "5:41/km" scaled by `ratio`, keeping its unit. */
+function scaledPace(pace: string | undefined, ratio: number): string | undefined {
+  if (!pace || !(paceToSeconds(pace) > 0)) return pace;
+  return secondsToPace(Math.round(paceToSeconds(pace) * ratio)) + (pace.match(/\/.*$/)?.[0] ?? "");
+}
+
+/**
+ * A new goal finish time. Every run pace zone moves by as much as the goal
+ * did (same rule as Settings' "Recalculate"), and sessions follow their
+ * zones, so the whole plan adapts. With no previous goal, only the goal and
+ * race pace are set.
+ */
+export function setGoalTime(plan: TrainingPlan, goalSeconds: number): TrainingPlan {
+  const target = raceTarget(plan);
+  if (!target) throw new ValidationError("This plan has no running race to set a goal for");
+  const goal = Math.round(goalSeconds);
+  const speed = target.distanceMeters / goal;
+  // 1.5-7 m/s: slower than a brisk walk or faster than the world record is a typo.
+  if (!Number.isFinite(goal) || speed < 1.5 || speed > 7) {
+    throw new ValidationError("Goal time is out of range for this distance");
+  }
+
+  const pace = plan.zones?.run?.pace;
+  if (pace && target.goalSeconds) {
+    const ratio = goal / target.goalSeconds;
+    pace.thresholdPace = scaledPace(pace.thresholdPace, ratio) ?? pace.thresholdPace;
+    pace.thresholdPaceSeconds = paceToSeconds(pace.thresholdPace);
+    for (const z of pace.zones ?? []) {
+      z.pace = scaledPace(z.pace, ratio) ?? z.pace;
+      z.paceSeconds = paceToSeconds(z.pace);
+      z.low = scaledPace(z.low, ratio);
+      z.high = scaledPace(z.high, ratio);
+    }
+  }
+
+  // h:mm:ss always - raceTarget reads goalTime with three fields.
+  const two = (n: number) => String(n).padStart(2, "0");
+  const clock = `${Math.floor(goal / 3600)}:${two(Math.floor((goal % 3600) / 60))}:${two(goal % 60)}`;
+  if (pace) (pace as unknown as Record<string, unknown>).goalTime = clock;
+
+  const run = plan.raceStrategy?.pacing?.run;
+  if (run) {
+    const perMile = /\/\s*mi/.test(run.targetPace ?? "");
+    const perUnit = (goal / target.distanceMeters) * (perMile ? 1609.34 : 1000);
+    run.targetPace = `${secondsToPace(Math.round(perUnit))}/${perMile ? "mi" : "km"}`;
+  }
   plan.meta.updatedAt = new Date().toISOString();
   return plan;
 }
