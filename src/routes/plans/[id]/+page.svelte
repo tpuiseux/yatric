@@ -205,6 +205,14 @@
     modalState = null;
   }
 
+  function handleGoalChange(goalSeconds: number) {
+    return request(`${base}/plans/${page.params.id}/goal`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goalSeconds }),
+    });
+  }
+
   async function handleSettingsChange(newSettings: Settings) {
     await request(`${base}/plans/${page.params.id}/settings`, {
       method: "PATCH",
@@ -282,6 +290,7 @@
         onWorkoutClick={handleWorkoutClick}
         onAskCoach={askCoach}
         onOpenRecovery={() => (view = "recovery")}
+        onGoalChange={handleGoalChange}
       />
       <WeekView
         plan={data.plan}
@@ -340,7 +349,11 @@
         />
         {#if data.prediction}
           <div class="prediction">
-            <RacePrediction prediction={data.prediction} {settings} />
+            <RacePrediction
+              prediction={data.prediction}
+              {settings}
+              onGoalChange={handleGoalChange}
+            />
           </div>
         {/if}
       </section>
