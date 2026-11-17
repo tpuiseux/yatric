@@ -83,7 +83,13 @@
           formatSpeed(1000 / e.paceSecondsPerKm, display)
         );
       case "vo2max":
-        return m.prediction.vo2maxDetail(fmt.number(e.vo2max, 1), fmt.date(e.date, "short"));
+        return e.calibration
+          ? m.prediction.vo2maxCalibrated(
+              fmt.number(e.vo2max, 1),
+              fmt.number(e.calibration.used, 1),
+              fmt.date(e.calibration.raceDate, "short")
+            )
+          : m.prediction.vo2maxDetail(fmt.number(e.vo2max, 1), fmt.date(e.date, "short"));
     }
   }
 
