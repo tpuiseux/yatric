@@ -40,6 +40,8 @@ export interface RunSummary {
   date: string;
   distanceMeters: number;
   movingSeconds: number;
+  /** Tagged as a race on Garmin. */
+  race?: boolean;
   efforts: Effort[];
   splits: Split[];
 }
@@ -266,7 +268,7 @@ export function kilometreSplits(pts: Point[]): Split[] {
  * as a whole is its one effort.
  */
 export function summarizeRun(
-  run: { id: number; date: string; distanceMeters: number; movingSeconds: number },
+  run: { id: number; date: string; distanceMeters: number; movingSeconds: number; race?: boolean },
   series: ActivitySeries | null
 ): RunSummary {
   const efforts: Effort[] = [];
@@ -453,22 +455,28 @@ export function predictAt(
     });
   }
 
-  return { date, ...combine(estimates), estimates };
+  const raced = recent.some((r) => r.race && r.distanceMeters >= minEffort);
+  return { date, ...combine(estimates, raced), estimates };
 }
 
 /**
  * One finish time from the estimates. Effort and VO2max each say "you can
  * at least run this" - training runs are rarely all-out - so the faster of
  * the two is the athlete's level; averaging them with slower ones only drags
- * it down. Speed at race heart rate stands in when neither exists. For a
+ * it down. A recent race beats both: it's the reference every coach uses,
+ * and Garmin's VO2max tends to run optimistic - so with one, VO2max is left
+ * out and the best effort (the race or faster) is the level. Speed at race heart rate stands in when neither exists. For a
  * marathon, a thin training volume costs time (Vickers & Vertosick 2016,
  * Tanda 2011): the volume model pulls the prediction halfway towards it
  * when it's slower, never faster.
  */
-export function combine(estimates: Estimate[]): Pick<Prediction, "seconds" | "used"> {
+export function combine(
+  estimates: Estimate[],
+  raced = false
+): Pick<Prediction, "seconds" | "used"> {
   const of = (kind: Estimate["kind"]) => estimates.find((e) => e.kind === kind);
   const level =
-    [of("effort"), of("vo2max")]
+    [of("effort"), raced ? undefined : of("vo2max")]
       .filter((e) => e !== undefined)
       .sort((a, b) => a.seconds - b.seconds)[0] ?? of("heartRate");
   if (!level) return { seconds: null, used: [] };

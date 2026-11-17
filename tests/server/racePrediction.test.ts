@@ -203,6 +203,24 @@ describe("predictAt", () => {
     expect(combined([est("effort", 4700), est("vo2max", 4800)])).toEqual([4700, ["effort"]]);
   });
 
+  it("leaves VO2max out once there's a recent race", () => {
+    const runs = [
+      { ...run("2026-09-13", 10, 270, 175), race: true }, // a 45:00 10K race
+      run("2026-09-20", 14, 300, 150),
+    ];
+    const vo2 = [{ date: "2026-09-24", value: 60 }]; // worth far faster than 45:00
+    const p = predictAt("2026-09-25", target, runs, vo2);
+    expect(p.estimates.map((e) => e.kind)).toContain("vo2max");
+    expect(p.used[0]).toBe("effort");
+    const withoutRace = predictAt(
+      "2026-09-25",
+      target,
+      [runs[1], { ...runs[0], race: false }],
+      vo2
+    );
+    expect(withoutRace.used[0]).toBe("vo2max");
+  });
+
   it("falls back on heart rate, and on nothing", () => {
     expect(combined([est("heartRate", 5700)])).toEqual([5700, ["heartRate"]]);
     expect(combined([])).toEqual([null, []]);
