@@ -1,7 +1,7 @@
 /**
  * Race-time prediction from recorded training. Several independent
- * estimates, each from a different signal in the athlete's runs, averaged
- * into one predicted finish time - recomputed week by week so the plan view
+ * estimates, each from a different signal in the athlete's runs, combined
+ * into one predicted finish time (see predictAt for how) - recomputed week by week so the plan view
  * can show how it moved as training went on. Shared by the server
  * (lib/server/racePrediction.ts feeds it the runs) and the sidebar card
  * (lib/components/RacePrediction.svelte).
@@ -71,9 +71,11 @@ export type Estimate =
 export interface Prediction {
   /** The day it's computed as of (YYYY-MM-DD), using training up to that day. */
   date: string;
-  /** Average of the estimates; null when none could be made. */
+  /** The predicted finish time; null when no estimate could be made. */
   seconds: number | null;
   estimates: Estimate[];
+  /** The estimates `seconds` comes from; the others are shown for context. */
+  used: Estimate["kind"][];
 }
 
 export interface RacePrediction {
@@ -419,10 +421,10 @@ export function predictAt(
     }
   }
 
-  // 3. Training volume (Tanda) - a marathon model, so half marathon and up,
-  // and only with three weeks of history at least.
+  // 3. Training volume (Tanda) - a marathon model, fitted on marathoners, so
+  // the marathon only, and only with three weeks of history at least.
   const firstRun = runs.reduce<string | null>((m, r) => (!m || r.date < m ? r.date : m), null);
-  if (D >= HALF_MARATHON - 500 && firstRun) {
+  if (D >= MARATHON - 1000 && firstRun) {
     const days = Math.min(WINDOW_DAYS, daysBetween(firstRun, date) + 1);
     const km = recent.reduce((s, r) => s + r.distanceMeters, 0) / 1000;
     const seconds = recent.reduce((s, r) => s + r.movingSeconds, 0);
@@ -451,9 +453,31 @@ export function predictAt(
     });
   }
 
-  const seconds =
-    estimates.length > 0 ? estimates.reduce((s, e) => s + e.seconds, 0) / estimates.length : null;
-  return { date, seconds, estimates };
+  return { date, ...combine(estimates), estimates };
+}
+
+/**
+ * One finish time from the estimates. Effort and VO2max each say "you can
+ * at least run this" - training runs are rarely all-out - so the faster of
+ * the two is the athlete's level; averaging them with slower ones only drags
+ * it down. Speed at race heart rate stands in when neither exists. For a
+ * marathon, a thin training volume costs time (Vickers & Vertosick 2016,
+ * Tanda 2011): the volume model pulls the prediction halfway towards it
+ * when it's slower, never faster.
+ */
+export function combine(estimates: Estimate[]): Pick<Prediction, "seconds" | "used"> {
+  const of = (kind: Estimate["kind"]) => estimates.find((e) => e.kind === kind);
+  const level =
+    [of("effort"), of("vo2max")]
+      .filter((e) => e !== undefined)
+      .sort((a, b) => a.seconds - b.seconds)[0] ?? of("heartRate");
+  if (!level) return { seconds: null, used: [] };
+
+  const volume = of("volume");
+  if (volume && volume.seconds > level.seconds) {
+    return { seconds: (level.seconds + volume.seconds) / 2, used: [level.kind, "volume"] };
+  }
+  return { seconds: level.seconds, used: [level.kind] };
 }
 
 /**

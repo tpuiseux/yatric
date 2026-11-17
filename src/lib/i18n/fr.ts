@@ -128,7 +128,7 @@ export const fr: Messages = {
       `${pace} à ${hr} bpm sur ${km} km de sorties récentes`,
     volumeDetail: (km: number, pace: string) => `${km} km par semaine à ${pace} en moyenne`,
     vo2maxDetail: (value: string, date: string) => `${value} le ${date}`,
-    note: "La prédiction est la moyenne de ces estimations. Les efforts et le volume portent sur 8 semaines, la fréquence cardiaque sur 4. Elle se met à jour après chaque synchronisation Garmin.",
+    note: "Un effort récent et la VO2max disent chacun « tu peux au moins courir ça » : la prédiction retient le plus rapide des deux, ou l'allure à ta FC de course quand ils manquent. Pour un marathon, un petit volume d'entraînement la ralentit. Les estimations en gris ne sont pas retenues. Efforts et volume portent sur 8 semaines, la FC sur 4 ; tout se met à jour après chaque synchronisation Garmin.",
   },
 
   signals: {

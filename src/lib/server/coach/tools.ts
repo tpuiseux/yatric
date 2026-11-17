@@ -90,7 +90,7 @@ export const COACH_TOOLS: Tool[] = [
   {
     name: "get_race_prediction",
     description:
-      "The app's predicted finish time for the race, the estimates it averages (best recent effort, pace at race heart rate, training volume, Garmin VO2max) and how it moved week by week.",
+      "The app's predicted finish time for the race, its estimates (best recent effort, pace at race heart rate, training volume for a marathon, Garmin VO2max) and which ones it uses (the faster of effort and VO2max, else heart rate; a marathon is pulled towards a slower volume estimate) and how it moved week by week.",
     input_schema: noInput,
   },
   {
