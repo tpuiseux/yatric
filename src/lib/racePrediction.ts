@@ -68,7 +68,15 @@ export type Estimate =
       splits: number;
     }
   | { kind: "volume"; seconds: number; kmPerWeek: number; paceSecondsPerKm: number }
-  | { kind: "vo2max"; seconds: number; vo2max: number; date: string };
+  | {
+      kind: "vo2max";
+      seconds: number;
+      vo2max: number;
+      date: string;
+      /** Set when calibrated on a race: the VDOT that race was worth, and the
+       * VO2max actually used (Garmin's, moved by the gap seen on race day). */
+      calibration?: { raceDate: string; raceVdot: number; used: number };
+    };
 
 export interface Prediction {
   /** The day it's computed as of (YYYY-MM-DD), using training up to that day. */
@@ -442,21 +450,59 @@ export function predictAt(
     }
   }
 
-  // 4. Garmin's VO2max, through Daniels' tables.
-  const reading = vo2max
-    .filter((v) => v.date <= date && v.date > addDays(date, -VO2MAX_MAX_AGE_DAYS))
-    .reduce<Vo2maxReading | null>((m, v) => (!m || v.date > m.date ? v : m), null);
+  // 4. Garmin's VO2max, through Daniels' tables - calibrated on the latest race.
+  const reading = latestReading(vo2max, date, VO2MAX_MAX_AGE_DAYS);
+  const calibration = reading ? calibrate(runs, vo2max, date) : null;
   if (reading) {
+    const used = reading.value + (calibration?.offset ?? 0);
     estimates.push({
       kind: "vo2max",
-      seconds: danielsSeconds(reading.value, D),
+      seconds: danielsSeconds(used, D),
       vo2max: reading.value,
       date: reading.date,
+      ...(calibration && {
+        calibration: { raceDate: calibration.raceDate, raceVdot: calibration.raceVdot, used },
+      }),
     });
   }
 
-  const raced = recent.some((r) => r.race && r.distanceMeters >= minEffort);
+  // A recent race Garmin's VO2max can't be checked against: trust the race.
+  const raced = !calibration && recent.some((r) => r.race && r.distanceMeters >= minEffort);
   return { date, ...combine(estimates, raced), estimates };
+}
+
+/** The newest reading in the `maxAgeDays` up to `date`. */
+function latestReading(
+  readings: Vo2maxReading[],
+  date: string,
+  maxAgeDays: number
+): Vo2maxReading | null {
+  return readings
+    .filter((v) => v.date <= date && v.date > addDays(date, -maxAgeDays))
+    .reduce<Vo2maxReading | null>((m, v) => (!m || v.date > m.date ? v : m), null);
+}
+
+/**
+ * Daniels' tables want a VDOT - the VO2max a race result is worth, economy
+ * and endurance included - and Garmin's VO2max usually sits above it. The
+ * gap on the athlete's latest race (3 km or more, with a Garmin reading in
+ * the two weeks before it) is theirs: it's carried over to later readings.
+ */
+export function calibrate(
+  runs: RunSummary[],
+  readings: Vo2maxReading[],
+  date: string
+): { raceDate: string; raceVdot: number; offset: number } | null {
+  const races = runs
+    .filter((r) => r.race && r.date <= date && r.distanceMeters >= 3000 && r.movingSeconds > 0)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  for (const race of races) {
+    const reading = latestReading(readings, race.date, VO2MAX_MAX_AGE_DAYS);
+    if (!reading) continue;
+    const raceVdot = vdot(race.distanceMeters, race.movingSeconds);
+    return { raceDate: race.date, raceVdot, offset: raceVdot - reading.value };
+  }
+  return null;
 }
 
 /**

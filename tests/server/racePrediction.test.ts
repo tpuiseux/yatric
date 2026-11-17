@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  calibrate,
   combine,
   danielsSeconds,
   fastestStretch,
@@ -208,7 +209,7 @@ describe("predictAt", () => {
       { ...run("2026-09-13", 10, 270, 175), race: true }, // a 45:00 10K race
       run("2026-09-20", 14, 300, 150),
     ];
-    const vo2 = [{ date: "2026-09-24", value: 60 }]; // worth far faster than 45:00
+    const vo2 = [{ date: "2026-09-24", value: 60 }]; // after the race: nothing to calibrate on
     const p = predictAt("2026-09-25", target, runs, vo2);
     expect(p.estimates.map((e) => e.kind)).toContain("vo2max");
     expect(p.used[0]).toBe("effort");
@@ -219,6 +220,25 @@ describe("predictAt", () => {
       vo2
     );
     expect(withoutRace.used[0]).toBe("vo2max");
+  });
+
+  it("calibrates Garmin's VO2max on the latest race", () => {
+    const race = { ...run("2026-09-13", 10, 270, 175), race: true }; // 45:00 10K
+    const raceVdot = vdot(10000, 2700);
+    const vo2 = [
+      { date: "2026-09-10", value: 52 }, // before the race: the gap is measured here
+      { date: "2026-09-24", value: 53 }, // a point higher since
+    ];
+    const cal = calibrate([race], vo2, "2026-09-25")!;
+    expect(cal.raceDate).toBe("2026-09-13");
+    expect(cal.offset).toBeCloseTo(raceVdot - 52, 5);
+
+    const p = predictAt("2026-09-25", target, [race], vo2);
+    const e = p.estimates.find((x) => x.kind === "vo2max")!;
+    expect(e.kind === "vo2max" && e.calibration!.used).toBeCloseTo(raceVdot + 1, 5);
+    expect(e.seconds).toBeCloseTo(danielsSeconds(raceVdot + 1, 42195), 5);
+    // Calibrated, VO2max counts again despite the race.
+    expect(p.used[0]).toBe("vo2max");
   });
 
   it("falls back on heart rate, and on nothing", () => {

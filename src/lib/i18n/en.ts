@@ -134,7 +134,9 @@ export const en = {
       `${pace} at ${hr} bpm over ${km} km of recent runs`,
     volumeDetail: (km: number, pace: string) => `${km} km a week at ${pace} on average`,
     vo2maxDetail: (value: string, date: string) => `${value} on ${date}`,
-    note: 'A recent effort and VO2max each say "you can at least run this": the prediction takes the faster of the two (and leaves VO2max aside when you have raced recently), or your pace at race heart rate when neither is there. For a marathon, a low training volume slows it down. Greyed-out estimates aren\'t used. Efforts and volume cover 8 weeks, heart rate 4; it all updates after each Garmin sync.',
+    vo2maxCalibrated: (value: string, used: string, race: string) =>
+      `${value} on Garmin, set to ${used} from your race on ${race}`,
+    note: 'A recent effort and VO2max each say "you can at least run this": the prediction takes the faster of the two (the Garmin VO2max is recalibrated on your latest race, as it often overstates race fitness), or your pace at race heart rate when neither is there. For a marathon, a low training volume slows it down. Greyed-out estimates aren\'t used. Efforts and volume cover 8 weeks, heart rate 4; it all updates after each Garmin sync.',
   },
 
   /** Recovery signals (lib/load.ts fatigueSignals): a title and what to do. */
