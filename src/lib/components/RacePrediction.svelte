@@ -273,7 +273,7 @@
         <summary>{m.prediction.howEstimated}</summary>
         <ul>
           {#each prediction.current.estimates as e (e.kind)}
-            <li>
+            <li class:unused={!prediction.current.used.includes(e.kind)}>
               <div class="row">
                 <span>{m.prediction.estimates[e.kind]}</span>
                 <span class="num">{formatClock(e.seconds)}</span>
@@ -363,6 +363,9 @@
   }
   .hint.error {
     color: var(--warning);
+  }
+  .unused {
+    opacity: 0.55;
   }
   .trend {
     font-size: 13px;

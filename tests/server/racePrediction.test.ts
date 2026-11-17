@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  combine,
   danielsSeconds,
   fastestStretch,
   kilometreSplits,
@@ -11,6 +12,7 @@ import {
   summarizeRun,
   tandaMarathonSeconds,
   vdot,
+  type Estimate,
   type RaceTarget,
   type RunSummary,
 } from "../../src/lib/racePrediction.js";
@@ -176,7 +178,6 @@ describe("predictAt", () => {
     const p = predictAt("2026-09-25", target, runs, [{ date: "2026-09-20", value: 52 }]);
     const kinds = p.estimates.map((e) => e.kind);
     expect(kinds).toEqual(["effort", "heartRate", "volume", "vo2max"]);
-    expect(p.seconds).toBeCloseTo(p.estimates.reduce((s, e) => s + e.seconds, 0) / 4, 5);
 
     const effort = p.estimates[0];
     expect(effort.kind === "effort" && effort.effort.date).toBe("2026-09-01");
@@ -185,6 +186,43 @@ describe("predictAt", () => {
 
     // A week before the 10K, nothing to go on but... nothing.
     expect(predictAt("2026-08-25", target, runs, []).seconds).toBeNull();
+  });
+
+  const est = (kind: string, seconds: number) => ({ kind, seconds }) as Estimate;
+  const combined = (estimates: Estimate[]) => {
+    const p = combine(estimates);
+    return [p.seconds, p.used];
+  };
+
+  it("takes the faster of effort and VO2max, not an average", () => {
+    // A half: training-pace signals are slower than the athlete's level.
+    expect(combined([est("effort", 5400), est("heartRate", 5700), est("vo2max", 4800)])).toEqual([
+      4800,
+      ["vo2max"],
+    ]);
+    expect(combined([est("effort", 4700), est("vo2max", 4800)])).toEqual([4700, ["effort"]]);
+  });
+
+  it("falls back on heart rate, and on nothing", () => {
+    expect(combined([est("heartRate", 5700)])).toEqual([5700, ["heartRate"]]);
+    expect(combined([])).toEqual([null, []]);
+  });
+
+  it("lets a thin marathon volume slow the prediction, never speed it up", () => {
+    expect(combined([est("vo2max", 10800), est("volume", 12000)])).toEqual([
+      11400,
+      ["vo2max", "volume"],
+    ]);
+    expect(combined([est("vo2max", 10800), est("volume", 10000)])).toEqual([10800, ["vo2max"]]);
+  });
+
+  it("leaves the volume model out below the marathon", () => {
+    const half: RaceTarget = { distanceMeters: 21097.5, goalSeconds: null, raceHr: null };
+    const runs = ["2026-09-01", "2026-09-08", "2026-09-15", "2026-09-22"].map((d) =>
+      run(d, 12, 300)
+    );
+    const p = predictAt("2026-09-25", half, runs, []);
+    expect(p.estimates.map((e) => e.kind)).toEqual(["effort"]);
   });
 
   it("drops efforts and VO2max once they're too old", () => {
