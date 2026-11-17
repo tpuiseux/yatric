@@ -317,11 +317,25 @@
       <legend class="title-m">{m.builder.running}</legend>
       <label class="field">
         {m.builder.weeklyKm}
-        <input class="input" type="number" min="0" bind:value={form.currentWeeklyKm} required />
+        <input
+          class="input"
+          type="number"
+          min="0"
+          step="0.1"
+          bind:value={form.currentWeeklyKm}
+          required
+        />
       </label>
       <label class="field">
         {m.builder.longestRun}
-        <input class="input" type="number" min="0" bind:value={form.longestRecentRunKm} required />
+        <input
+          class="input"
+          type="number"
+          min="0"
+          step="0.1"
+          bind:value={form.longestRecentRunKm}
+          required
+        />
       </label>
       <label class="field">
         {m.builder.years}
@@ -334,7 +348,7 @@
             class="input"
             type="number"
             min="0"
-            step="0.5"
+            step="0.1"
             bind:value={form.swimKmPerWeek}
             required
           />
@@ -347,7 +361,7 @@
             class="input"
             type="number"
             min="0"
-            step="0.5"
+            step="0.1"
             bind:value={form.skiHoursPerWeek}
             required
           />
@@ -360,7 +374,7 @@
             class="input"
             type="number"
             min="0"
-            step="0.5"
+            step="0.1"
             bind:value={form.bikeHoursPerWeek}
             required
           />
