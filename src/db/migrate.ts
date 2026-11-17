@@ -33,6 +33,13 @@ function migrateLegacyColumns(): void {
   execute(
     "CREATE INDEX IF NOT EXISTS idx_activities_user_local ON activities(user_id, start_date_local)"
   );
+
+  // When a year of history (runs, VO2max) was last pulled in for the race
+  // prediction - once per user, after a first regular sync (garminSync.ts).
+  const syncColumns = all<TableColumn>("PRAGMA table_info(garmin_sync_state)");
+  if (!syncColumns.some((c) => c.name === "history_backfilled_at")) {
+    execute("ALTER TABLE garmin_sync_state ADD COLUMN history_backfilled_at TEXT");
+  }
 }
 
 export function migrate(): void {

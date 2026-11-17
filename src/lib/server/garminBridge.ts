@@ -106,6 +106,14 @@ export async function fetchGarminActivities(userId: number, start: string, end: 
   );
 }
 
+/** Garmin's running VO2max per day (garmin_bridge.py vo2max_for_range). */
+export async function fetchGarminVo2max(userId: number, start: string, end: string) {
+  return callBridge<{ days: { date: string; vo2max: number }[] }>("/garmin/vo2max", {
+    method: "POST",
+    body: JSON.stringify({ userId, start, end }),
+  });
+}
+
 export async function fetchGarminWellness(userId: number, start: string, end: string) {
   return callBridge<{ days: BridgeWellnessRow[] }>("/garmin/wellness", {
     method: "POST",

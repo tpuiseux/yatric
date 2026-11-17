@@ -205,15 +205,20 @@ export async function getActivityDetails(
  * after MAX_ATTEMPTS, so it can't hold the others up for long.
  * Returns how many were fetched.
  */
-export async function prefetchActivityDetails(userId: number, limit: number): Promise<number> {
+export async function prefetchActivityDetails(
+  userId: number,
+  limit: number,
+  sportTypes?: readonly string[]
+): Promise<number> {
+  const sports = sportTypes ? `AND a.sport_type IN (${sportTypes.map(() => "?").join(", ")})` : "";
   const pending = all<{ id: number }>(
     `SELECT a.id FROM activities a
      LEFT JOIN activity_details d ON d.activity_id = a.id
-     WHERE a.user_id = ? AND a.start_date_local IS NOT NULL
+     WHERE a.user_id = ? AND a.start_date_local IS NOT NULL ${sports}
        AND (d.activity_id IS NULL OR (d.complete = 0 AND d.attempts < ?))
      ORDER BY a.start_date_local DESC
      LIMIT ?`,
-    [userId, MAX_ATTEMPTS, limit]
+    [userId, ...(sportTypes ?? []), MAX_ATTEMPTS, limit]
   );
 
   let fetched = 0;

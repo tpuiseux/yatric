@@ -4,6 +4,7 @@ import { autoCompleteFromActivities } from "./autoComplete.js";
 import { prefetchActivityDetails } from "./activityDetails.js";
 import {
   fetchGarminActivities,
+  fetchGarminVo2max,
   fetchGarminWellness,
   type BridgeActivityRow,
   type BridgeWellnessRow,
@@ -35,6 +36,12 @@ const MAX_WELLNESS_DAYS = 31;
 // calls each). Covers any normal gap between syncs; a first sync's six
 // weeks of history fill in over the next few.
 const DETAILS_PER_SYNC = 15;
+// The race prediction calibrates on races and reads VO2max a year back: a
+// year of runs and VO2max is pulled in once, and the runs' samples (what
+// efforts are found in) fill in a few more per sync, newest first.
+const HISTORY_DAYS = 365;
+const RUN_DETAILS_PER_SYNC = 20;
+const RUN_TYPES = ["Run", "TrailRun", "VirtualRun"] as const;
 
 // Whitelists: these names go into SQL as identifiers, so they're never taken
 // from the bridge's response keys.
@@ -275,13 +282,70 @@ async function runSync(userId: number, previous: GarminSyncState | null): Promis
   // After the sync is reported done, so the page refreshes without waiting
   // on these. Still counts as running: no second sync starts meanwhile.
   try {
+    await backfillHistory(userId);
+  } catch (err) {
+    // Retried after the next sync.
+    console.error(`[garmin-sync] history backfill failed for user ${userId}:`, err);
+  }
+  try {
     await prefetchActivityDetails(userId, DETAILS_PER_SYNC);
+    await prefetchActivityDetails(userId, RUN_DETAILS_PER_SYNC, RUN_TYPES);
   } catch (err) {
     // Opening an activity fetches its details anyway.
     console.error(`[garmin-sync] activity details prefetch failed for user ${userId}:`, err);
   } finally {
     runningSyncs.delete(userId);
   }
+}
+
+/**
+ * Once per user: the year of activities before the first sync's six weeks,
+ * and a year of VO2max - one bridge call per 120 days of activities, one for
+ * the VO2max. Throws (and is retried next sync) when the bridge fails.
+ */
+export async function backfillHistory(userId: number, now = Date.now()): Promise<void> {
+  const state = get<{ history_backfilled_at: string | null }>(
+    "SELECT history_backfilled_at FROM garmin_sync_state WHERE user_id = ?",
+    [userId]
+  );
+  if (!state || state.history_backfilled_at) return;
+
+  const from = isoDate(now - (HISTORY_DAYS - 1) * DAY_MS);
+  const earliest = get<{ date: string | null }>(
+    "SELECT MIN(substr(start_date_local, 1, 10)) AS date FROM activities WHERE user_id = ?",
+    [userId]
+  )?.date;
+  // Back from the oldest activity already here, 120 days at a time.
+  let end = earliest ? isoDate(Date.parse(earliest) - DAY_MS) : isoDate(now);
+  while (end >= from) {
+    const start = isoDate(
+      Math.max(Date.parse(from), Date.parse(end) - (MAX_ACTIVITY_DAYS - 1) * DAY_MS)
+    );
+    const activities = await fetchGarminActivities(userId, start, end);
+    if (!activities.ok) throw new Error(activities.message);
+    inTransaction(() => storeActivities(userId, activities.data.activities, start, end));
+    end = isoDate(Date.parse(start) - DAY_MS);
+  }
+
+  const vo2max = await fetchGarminVo2max(userId, from, isoDate(now));
+  if (!vo2max.ok) throw new Error(vo2max.message);
+  inTransaction(() => {
+    for (const { date, vo2max: value } of vo2max.data.days) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || typeof value !== "number") continue;
+      // Never overwrites what the daily wellness sync stored.
+      run(
+        `INSERT INTO daily_wellness (user_id, date, vo2max, synced_at)
+         VALUES (?, ?, ?, datetime('now'))
+         ON CONFLICT(user_id, date) DO UPDATE SET
+           vo2max = COALESCE(daily_wellness.vo2max, excluded.vo2max)`,
+        [userId, date, value]
+      );
+    }
+  });
+
+  run("UPDATE garmin_sync_state SET history_backfilled_at = datetime('now') WHERE user_id = ?", [
+    userId,
+  ]);
 }
 
 export type StartSyncResult = "started" | "running" | "fresh" | "not-connected";
