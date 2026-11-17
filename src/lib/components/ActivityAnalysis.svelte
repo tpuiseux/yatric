@@ -4,6 +4,7 @@
   import type { HrZone, Settings } from "../settings.js";
   import { activitySport, type RecordedActivity } from "../trainingLog.js";
   import { getI18n } from "../i18n/index.js";
+  import RaceMark from "./RaceMark.svelte";
   import { distance as localDistance } from "../format.js";
   import {
     aerobicDecoupling,
@@ -486,6 +487,7 @@
 </script>
 
 <div class="analysis">
+  {#if sport === "run"}<RaceMark {activity} />{/if}
   {#if loadError}
     <p class="analysis-note error">{loadError}</p>
   {:else if !analysis}

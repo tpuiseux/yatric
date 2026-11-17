@@ -26,7 +26,8 @@ interface RunRow {
   distance: number | null;
   moving_time: number | null;
   elapsed_time: number | null;
-  workout_type: number | null;
+  race: number;
+  official_seconds: number | null;
   fetched_at: string | null;
 }
 
@@ -53,9 +54,11 @@ function loadSeries(userId: number, activityId: number): ActivitySeries | null {
 function loadRuns(userId: number, since: string): RunSummary[] {
   const rows = all<RunRow>(
     `SELECT a.id, COALESCE(a.start_date_local, a.start_date) AS start, a.distance,
-            a.moving_time, a.elapsed_time, a.workout_type, d.fetched_at
+            a.moving_time, a.elapsed_time, r.official_seconds, d.fetched_at,
+            COALESCE(r.is_race, a.workout_type = 1, 0) AS race
      FROM activities a
      LEFT JOIN activity_details d ON d.activity_id = a.id AND d.user_id = a.user_id
+     LEFT JOIN race_marks r ON r.activity_id = a.id AND r.user_id = a.user_id
      WHERE a.user_id = ? AND a.sport_type IN (${RUN_TYPES.map(() => "?").join(", ")})
        AND COALESCE(a.start_date_local, a.start_date) >= ?`,
     [userId, ...RUN_TYPES, since]
@@ -66,7 +69,8 @@ function loadRuns(userId: number, since: string): RunSummary[] {
       row.start,
       row.distance,
       row.moving_time,
-      row.workout_type,
+      row.race,
+      row.official_seconds,
       row.fetched_at,
     ].join("|");
     const cached = summaries.get(row.id);
@@ -76,8 +80,8 @@ function loadRuns(userId: number, since: string): RunSummary[] {
         id: row.id,
         date: row.start.slice(0, 10),
         distanceMeters: row.distance ?? 0,
-        movingSeconds: row.moving_time ?? row.elapsed_time ?? 0,
-        race: row.workout_type === 1,
+        movingSeconds: row.official_seconds ?? row.moving_time ?? row.elapsed_time ?? 0,
+        race: row.race === 1,
       },
       row.fetched_at ? loadSeries(userId, row.id) : null
     );

@@ -32,7 +32,8 @@ interface Row {
   distance: number | null;
   moving_time: number | null;
   elapsed_time: number | null;
-  workout_type: number | null;
+  race: number;
+  official_seconds: number | null;
   data: string | null;
 }
 
@@ -135,9 +136,11 @@ function load(dbPath: string) {
   const rows = db
     .prepare(
       `SELECT a.user_id, a.id, COALESCE(a.start_date_local, a.start_date) AS start, a.distance,
-              a.moving_time, a.elapsed_time, a.workout_type, d.data
+              a.moving_time, a.elapsed_time, r.official_seconds, d.data,
+              COALESCE(r.is_race, a.workout_type = 1, 0) AS race
        FROM activities a
        LEFT JOIN activity_details d ON d.activity_id = a.id AND d.user_id = a.user_id
+       LEFT JOIN race_marks r ON r.activity_id = a.id AND r.user_id = a.user_id
        WHERE a.user_id IS NOT NULL AND a.sport_type IN (${RUN_TYPES.map(() => "?").join(", ")})
          AND COALESCE(a.start_date_local, a.start_date) IS NOT NULL`
     )
@@ -157,8 +160,8 @@ function load(dbPath: string) {
         id: row.id,
         date: row.start.slice(0, 10),
         distanceMeters: row.distance ?? 0,
-        movingSeconds: row.moving_time ?? row.elapsed_time ?? 0,
-        race: row.workout_type === 1,
+        movingSeconds: row.official_seconds ?? row.moving_time ?? row.elapsed_time ?? 0,
+        race: row.race === 1,
       },
       series
     );

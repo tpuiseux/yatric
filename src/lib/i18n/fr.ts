@@ -529,6 +529,14 @@ export const fr: Messages = {
     version: (v: string) => `Version ${v}`,
   },
 
+  race: {
+    label: "C'était une course",
+    official: "Chrono officiel",
+    hint: "Facultatif : sinon le temps enregistré compte. Le chrono prédit se cale sur tes courses.",
+    invalid: "Saisis un temps comme 42:30 ou 1:35:00.",
+    saved: "Enregistré. Le chrono prédit est à jour.",
+  },
+
   activity: {
     loading: "Chargement du détail de la séance…",
     couldNotLoad: "Impossible de charger la séance. Réessaie.",

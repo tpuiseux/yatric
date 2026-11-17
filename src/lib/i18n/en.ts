@@ -537,6 +537,14 @@ export const en = {
     version: (v: string) => `Version ${v}`,
   },
 
+  race: {
+    label: "This was a race",
+    official: "Official time",
+    hint: "Optional: the recorded time counts otherwise. The predicted time calibrates on your races.",
+    invalid: "Enter a time like 42:30 or 1:35:00.",
+    saved: "Saved. The predicted time is up to date.",
+  },
+
   activity: {
     loading: "Loading the session's details…",
     couldNotLoad: "Couldn't load the session. Try again.",
