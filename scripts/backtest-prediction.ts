@@ -55,7 +55,8 @@ function addDays(date: string, days: number): string {
 /** Each race, predicted from what came before it. */
 export function backtest(
   runsByUser: Map<number, RunSummary[]>,
-  vo2ByUser: Map<number, Vo2maxReading[]>
+  vo2ByUser: Map<number, Vo2maxReading[]>,
+  lthrByUser = new Map<number, number>()
 ): Result[] {
   const results: Result[] = [];
   for (const [user, runs] of runsByUser) {
@@ -64,7 +65,12 @@ export function backtest(
       const before = addDays(race.date, -1);
       // Same-day runs are the race's warm-up at best: leave them out.
       const history = runs.filter((r) => r.date <= before);
-      const target = { distanceMeters: race.distanceMeters, goalSeconds: null, raceHr: null };
+      const target = {
+        distanceMeters: race.distanceMeters,
+        goalSeconds: null,
+        raceHr: null,
+        lthr: lthrByUser.get(user) ?? null,
+      };
       const p = predictAt(before, target, history, vo2);
       const of = (kind: Estimate["kind"]) => p.estimates.find((e) => e.kind === kind);
       const predicted: Record<string, number> = {};
@@ -174,8 +180,22 @@ function load(dbPath: string) {
   for (const { user_id, date, value } of readings) {
     vo2ByUser.set(user_id, [...(vo2ByUser.get(user_id) ?? []), { date, value }]);
   }
+  // Threshold heart rate from each athlete's latest plan, to spot all-out efforts.
+  const lthrByUser = new Map<number, number>();
+  const plans = db
+    .prepare("SELECT user_id, data FROM plans WHERE user_id IS NOT NULL ORDER BY updated_at")
+    .all() as unknown as { user_id: number; data: string }[];
+  for (const { user_id, data } of plans) {
+    try {
+      const lthr = (JSON.parse(data) as { zones?: { run?: { hr?: { lthr?: unknown } } } }).zones
+        ?.run?.hr?.lthr;
+      if (typeof lthr === "number" && lthr > 0) lthrByUser.set(user_id, lthr);
+    } catch {
+      // A plan that isn't JSON says nothing about heart rate.
+    }
+  }
   db.close();
-  return { runsByUser, vo2ByUser };
+  return { runsByUser, vo2ByUser, lthrByUser };
 }
 
 const clock = (s: number) =>
@@ -184,8 +204,8 @@ const clock = (s: number) =>
 function main() {
   const dbPath = process.argv[2];
   if (!dbPath) throw new Error("Usage: backtest-prediction.ts <coach.db>");
-  const { runsByUser, vo2ByUser } = load(dbPath);
-  const results = backtest(runsByUser, vo2ByUser);
+  const { runsByUser, vo2ByUser, lthrByUser } = load(dbPath);
+  const results = backtest(runsByUser, vo2ByUser, lthrByUser);
 
   // Users by number, not id.
   const userNo = new Map([...new Set(results.map((r) => r.user))].map((u, i) => [u, i + 1]));

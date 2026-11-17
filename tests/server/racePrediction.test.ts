@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   calibrate,
+  isAllOut,
   combine,
   danielsSeconds,
   fastestStretch,
@@ -63,7 +64,12 @@ function run(date: string, km: number, pace: number, hr = 140): RunSummary {
 
 describe("raceTarget", () => {
   it("reads distance, goal and race heart rate from the plan", () => {
-    expect(raceTarget(plan())).toEqual({ distanceMeters: 42195, goalSeconds: 11520, raceHr: 154 });
+    expect(raceTarget(plan())).toEqual({
+      distanceMeters: 42195,
+      goalSeconds: 11520,
+      raceHr: 154,
+      lthr: 176,
+    });
   });
 
   it("falls back to the target pace and threshold heart rate", () => {
@@ -78,6 +84,7 @@ describe("raceTarget", () => {
       distanceMeters: 21097.5,
       goalSeconds: Math.round((260 * 21.0975) / 60) * 60,
       raceHr: Math.round(176 * 0.93),
+      lthr: 176,
     });
   });
 
@@ -239,6 +246,26 @@ describe("predictAt", () => {
     expect(e.seconds).toBeCloseTo(danielsSeconds(raceVdot + 1, 42195), 5);
     // Calibrated, VO2max counts again despite the race.
     expect(p.used[0]).toBe("vo2max");
+  });
+
+  it("spots all-out efforts by their heart rate, and calibrates on them", () => {
+    // A 10K tempo at 172 bpm against a 176 threshold: all-out. At 150: not.
+    const hard = run("2026-09-13", 10, 255, 172);
+    const easy = run("2026-09-14", 10, 300, 150);
+    // The run as a whole has no heart rate here; its sampled 10K stretch does.
+    const sampled = (r: RunSummary) => r.efforts.find((e) => e.distanceMeters === 10000 && e.hr)!;
+    const tenK = sampled(hard);
+    expect(tenK.hr).toBeCloseTo(172, 5);
+    expect(isAllOut(tenK, 176)).toBe(true);
+    expect(isAllOut(tenK, null)).toBe(false);
+    expect(isAllOut(sampled(easy), 176)).toBe(false);
+
+    const vo2 = [{ date: "2026-09-10", value: 58 }];
+    expect(calibrate([hard, easy], vo2, "2026-09-25", 176)).toMatchObject({
+      raceDate: "2026-09-13",
+      raceVdot: vdot(10000, 2550),
+    });
+    expect(calibrate([hard, easy], vo2, "2026-09-25", null)).toBeNull();
   });
 
   it("falls back on heart rate, and on nothing", () => {

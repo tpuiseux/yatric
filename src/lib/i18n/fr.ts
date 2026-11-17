@@ -130,7 +130,7 @@ export const fr: Messages = {
     vo2maxDetail: (value: string, date: string) => `${value} le ${date}`,
     vo2maxCalibrated: (value: string, used: string, race: string) =>
       `${value} sur Garmin, ajustée à ${used} d'après ta course du ${race}`,
-    note: "Un effort récent et la VO2max disent chacun « tu peux au moins courir ça » : la prédiction retient le plus rapide des deux (la VO2max Garmin est recalée sur ta dernière course, car elle surestime souvent le niveau en course), ou l'allure à ta FC de course quand ils manquent. Pour un marathon, un petit volume d'entraînement la ralentit. Les estimations en gris ne sont pas retenues. Efforts et volume portent sur 8 semaines, la FC sur 4 ; tout se met à jour après chaque synchronisation Garmin.",
+    note: "Un effort récent et la VO2max disent chacun « tu peux au moins courir ça » : la prédiction retient le plus rapide des deux (la VO2max Garmin est recalée sur ta dernière course ou ton dernier effort à fond (repéré à ta FC), car elle surestime souvent le niveau en course), ou l'allure à ta FC de course quand ils manquent. Pour un marathon, un petit volume d'entraînement la ralentit. Les estimations en gris ne sont pas retenues. Efforts et volume portent sur 8 semaines, la FC sur 4 ; tout se met à jour après chaque synchronisation Garmin.",
   },
 
   signals: {
