@@ -268,6 +268,18 @@ describe("predictAt", () => {
     expect(calibrate([hard, easy], vo2, "2026-09-25", null)).toBeNull();
   });
 
+  it("calibrates on a reading from the month after the race when none came before", () => {
+    // Like VO2max history that starts after the athlete's last race.
+    const race = { ...run("2026-09-06", 10, 252, 172), race: true };
+    const late = [{ date: "2026-10-02", value: 55.5 }];
+    expect(calibrate([race], late, "2026-11-17")).toMatchObject({
+      raceDate: "2026-09-06",
+      offset: vdot(10000, 2520) - 55.5,
+    });
+    // Two months on is too far to say what it was on race day.
+    expect(calibrate([race], [{ date: "2026-11-10", value: 55.5 }], "2026-11-17")).toBeNull();
+  });
+
   it("falls back on heart rate, and on nothing", () => {
     expect(combined([est("heartRate", 5700)])).toEqual([5700, ["heartRate"]]);
     expect(combined([])).toEqual([null, []]);
