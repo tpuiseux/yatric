@@ -114,6 +114,9 @@ const WINDOW_DAYS = 56;
 const HR_WINDOW_DAYS = 28;
 /** A Garmin VO2max older than this is stale. */
 const VO2MAX_MAX_AGE_DAYS = 14;
+/** With no reading before a race, one this soon after it still calibrates:
+ * VO2max moves slowly, and history often starts after the last race. */
+const CALIBRATION_LATE_DAYS = 30;
 /** Below this a "run" kilometre is walking or stopped. */
 const MIN_RUN_SPEED = 2.0;
 /** Above this a stretch is a GPS glitch, not a runner. */
@@ -509,6 +512,18 @@ export function predictAt(
   return { date, ...combine(estimates, raced), estimates };
 }
 
+/** The oldest reading in the `days` after `from`, and no later than `until`. */
+function firstReadingAfter(
+  readings: Vo2maxReading[],
+  from: string,
+  until: string,
+  days: number
+): Vo2maxReading | null {
+  return readings
+    .filter((v) => v.date > from && v.date <= until && v.date <= addDays(from, days))
+    .reduce<Vo2maxReading | null>((m, v) => (!m || v.date < m.date ? v : m), null);
+}
+
 /** The newest reading in the `maxAgeDays` up to `date`. */
 function latestReading(
   readings: Vo2maxReading[],
@@ -538,7 +553,7 @@ function raceVdot(run: RunSummary, lthr: number | null | undefined): number | nu
  * Daniels' tables want a VDOT - the VO2max a race result is worth, economy
  * and endurance included - and Garmin's VO2max usually sits above it. The
  * gap on the athlete's latest race or all-out effort (3 km or more, with a
- * Garmin reading in the two weeks before it) is theirs: it's carried over to
+ * Garmin reading in the two weeks before it, or else the month after) is theirs: it's carried over to
  * later readings.
  */
 export function calibrate(
@@ -553,7 +568,9 @@ export function calibrate(
   for (const run of candidates) {
     const value = raceVdot(run, lthr);
     if (value === null) continue;
-    const reading = latestReading(readings, run.date, VO2MAX_MAX_AGE_DAYS);
+    const reading =
+      latestReading(readings, run.date, VO2MAX_MAX_AGE_DAYS) ??
+      firstReadingAfter(readings, run.date, date, CALIBRATION_LATE_DAYS);
     if (!reading) continue;
     return { raceDate: run.date, raceVdot: value, offset: value - reading.value };
   }
