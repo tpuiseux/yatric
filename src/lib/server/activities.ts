@@ -16,12 +16,16 @@ export function getActivitiesByDate(
     elapsed_time: number | null;
     distance: number | null;
     average_heartrate: number | null;
+    race: number;
+    official_seconds: number | null;
   }>(
-    `SELECT id, name, sport_type, start_date_local, moving_time, elapsed_time, distance,
-            average_heartrate
-     FROM activities
-     WHERE user_id = ? AND start_date_local >= ? AND start_date_local < ?
-     ORDER BY start_date_local`,
+    `SELECT a.id, a.name, a.sport_type, a.start_date_local, a.moving_time, a.elapsed_time,
+            a.distance, a.average_heartrate, r.official_seconds,
+            COALESCE(r.is_race, a.workout_type = 1, 0) AS race
+     FROM activities a
+     LEFT JOIN race_marks r ON r.activity_id = a.id AND r.user_id = a.user_id
+     WHERE a.user_id = ? AND a.start_date_local >= ? AND a.start_date_local < ?
+     ORDER BY a.start_date_local`,
     // "<" the day after endDate: start_date_local carries a time part.
     [userId, startDate, nextDay(endDate)]
   );
@@ -37,6 +41,8 @@ export function getActivitiesByDate(
       movingSeconds: r.moving_time ?? r.elapsed_time,
       distanceMeters: r.distance,
       averageHeartrate: r.average_heartrate,
+      race: r.race === 1,
+      officialSeconds: r.official_seconds,
     });
   }
   return byDate;

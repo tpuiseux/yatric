@@ -32,7 +32,8 @@ interface Row {
   distance: number | null;
   moving_time: number | null;
   elapsed_time: number | null;
-  workout_type: number | null;
+  race: number;
+  official_seconds: number | null;
   data: string | null;
 }
 
@@ -54,7 +55,8 @@ function addDays(date: string, days: number): string {
 /** Each race, predicted from what came before it. */
 export function backtest(
   runsByUser: Map<number, RunSummary[]>,
-  vo2ByUser: Map<number, Vo2maxReading[]>
+  vo2ByUser: Map<number, Vo2maxReading[]>,
+  lthrByUser = new Map<number, number>()
 ): Result[] {
   const results: Result[] = [];
   for (const [user, runs] of runsByUser) {
@@ -63,7 +65,12 @@ export function backtest(
       const before = addDays(race.date, -1);
       // Same-day runs are the race's warm-up at best: leave them out.
       const history = runs.filter((r) => r.date <= before);
-      const target = { distanceMeters: race.distanceMeters, goalSeconds: null, raceHr: null };
+      const target = {
+        distanceMeters: race.distanceMeters,
+        goalSeconds: null,
+        raceHr: null,
+        lthr: lthrByUser.get(user) ?? null,
+      };
       const p = predictAt(before, target, history, vo2);
       const of = (kind: Estimate["kind"]) => p.estimates.find((e) => e.kind === kind);
       const predicted: Record<string, number> = {};
@@ -135,9 +142,11 @@ function load(dbPath: string) {
   const rows = db
     .prepare(
       `SELECT a.user_id, a.id, COALESCE(a.start_date_local, a.start_date) AS start, a.distance,
-              a.moving_time, a.elapsed_time, a.workout_type, d.data
+              a.moving_time, a.elapsed_time, r.official_seconds, d.data,
+              COALESCE(r.is_race, a.workout_type = 1, 0) AS race
        FROM activities a
        LEFT JOIN activity_details d ON d.activity_id = a.id AND d.user_id = a.user_id
+       LEFT JOIN race_marks r ON r.activity_id = a.id AND r.user_id = a.user_id
        WHERE a.user_id IS NOT NULL AND a.sport_type IN (${RUN_TYPES.map(() => "?").join(", ")})
          AND COALESCE(a.start_date_local, a.start_date) IS NOT NULL`
     )
@@ -157,8 +166,8 @@ function load(dbPath: string) {
         id: row.id,
         date: row.start.slice(0, 10),
         distanceMeters: row.distance ?? 0,
-        movingSeconds: row.moving_time ?? row.elapsed_time ?? 0,
-        race: row.workout_type === 1,
+        movingSeconds: row.official_seconds ?? row.moving_time ?? row.elapsed_time ?? 0,
+        race: row.race === 1,
       },
       series
     );
@@ -171,8 +180,22 @@ function load(dbPath: string) {
   for (const { user_id, date, value } of readings) {
     vo2ByUser.set(user_id, [...(vo2ByUser.get(user_id) ?? []), { date, value }]);
   }
+  // Threshold heart rate from each athlete's latest plan, to spot all-out efforts.
+  const lthrByUser = new Map<number, number>();
+  const plans = db
+    .prepare("SELECT user_id, data FROM plans WHERE user_id IS NOT NULL ORDER BY updated_at")
+    .all() as unknown as { user_id: number; data: string }[];
+  for (const { user_id, data } of plans) {
+    try {
+      const lthr = (JSON.parse(data) as { zones?: { run?: { hr?: { lthr?: unknown } } } }).zones
+        ?.run?.hr?.lthr;
+      if (typeof lthr === "number" && lthr > 0) lthrByUser.set(user_id, lthr);
+    } catch {
+      // A plan that isn't JSON says nothing about heart rate.
+    }
+  }
   db.close();
-  return { runsByUser, vo2ByUser };
+  return { runsByUser, vo2ByUser, lthrByUser };
 }
 
 const clock = (s: number) =>
@@ -181,8 +204,8 @@ const clock = (s: number) =>
 function main() {
   const dbPath = process.argv[2];
   if (!dbPath) throw new Error("Usage: backtest-prediction.ts <coach.db>");
-  const { runsByUser, vo2ByUser } = load(dbPath);
-  const results = backtest(runsByUser, vo2ByUser);
+  const { runsByUser, vo2ByUser, lthrByUser } = load(dbPath);
+  const results = backtest(runsByUser, vo2ByUser, lthrByUser);
 
   // Users by number, not id.
   const userNo = new Map([...new Set(results.map((r) => r.user))].map((u, i) => [u, i + 1]));

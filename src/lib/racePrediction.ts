@@ -19,12 +19,16 @@ export interface RaceTarget {
   goalSeconds: number | null;
   /** The heart rate the plan says to race at (middle of its range). */
   raceHr: number | null;
+  /** The plan's run threshold heart rate: tells all-out efforts apart. */
+  lthr?: number | null;
 }
 
 /** A stretch of a run covered as fast as the athlete covered it. */
 export interface Effort {
   distanceMeters: number;
   seconds: number;
+  /** Average heart rate over the stretch, when the samples have it. */
+  hr?: number;
 }
 
 /** One full kilometre of a run: its average speed (m/s) and heart rate. */
@@ -192,7 +196,7 @@ export function raceTarget(plan: TrainingPlan): RaceTarget | null {
     raceHr = Math.round(plan.zones.run.hr.lthr * raceHrFraction(distanceMeters));
   }
 
-  return { distanceMeters, goalSeconds, raceHr };
+  return { distanceMeters, goalSeconds, raceHr, lthr: plan.zones?.run?.hr?.lthr ?? null };
 }
 
 // ---------------------------------------------------------------------------
@@ -225,7 +229,12 @@ function points(series: ActivitySeries): Point[] {
  * when the run is shorter. Pauses don't count - the time samples skip them.
  */
 export function fastestStretch(pts: Point[], target: number): number | null {
-  let best = Infinity;
+  return fastestEffort(pts, target)?.seconds ?? null;
+}
+
+/** fastestStretch, with the stretch's average heart rate when most of it has one. */
+function fastestEffort(pts: Point[], target: number): Effort | null {
+  let best: { seconds: number; from: number; to: number } | null = null;
   let i = 0;
   for (let j = 1; j < pts.length; j++) {
     // Tightest start that still covers the target.
@@ -233,9 +242,32 @@ export function fastestStretch(pts: Point[], target: number): number | null {
     const covered = pts[j].d - pts[i].d;
     if (covered < target) continue;
     const seconds = ((pts[j].t - pts[i].t) * target) / covered;
-    if (seconds < best) best = seconds;
+    if (!best || seconds < best.seconds) best = { seconds, from: i, to: j };
   }
-  return best === Infinity ? null : best;
+  if (!best) return null;
+
+  let hrSum = 0;
+  let hrSeconds = 0;
+  for (let k = best.from + 1; k <= best.to; k++) {
+    const hr = pts[k].hr;
+    if (hr !== null && hr > 0) {
+      hrSum += hr * (pts[k].t - pts[k - 1].t);
+      hrSeconds += pts[k].t - pts[k - 1].t;
+    }
+  }
+  const span = pts[best.to].t - pts[best.from].t;
+  const effort: Effort = { distanceMeters: target, seconds: best.seconds };
+  if (hrSeconds >= span * 0.8) effort.hr = hrSum / hrSeconds;
+  return effort;
+}
+
+/**
+ * An all-out effort, race or not: 20 minutes or more, at the heart rate a
+ * race of that length is run at (a touch under, for the warm-up and pacing).
+ */
+export function isAllOut(effort: Effort, lthr: number | null | undefined): boolean {
+  if (!lthr || !effort.hr || effort.seconds < 20 * 60) return false;
+  return effort.hr >= lthr * raceHrFraction(effort.distanceMeters) * 0.97;
 }
 
 /** Each full kilometre after the first (the warm-up), with its heart rate. */
@@ -285,8 +317,8 @@ export function summarizeRun(
   }
   const pts = series ? points(series) : [];
   for (const distanceMeters of EFFORT_DISTANCES) {
-    const seconds = fastestStretch(pts, distanceMeters);
-    if (seconds !== null) efforts.push({ distanceMeters, seconds });
+    const effort = fastestEffort(pts, distanceMeters);
+    if (effort) efforts.push(effort);
   }
   return { ...run, efforts, splits: kilometreSplits(pts) };
 }
@@ -452,7 +484,7 @@ export function predictAt(
 
   // 4. Garmin's VO2max, through Daniels' tables - calibrated on the latest race.
   const reading = latestReading(vo2max, date, VO2MAX_MAX_AGE_DAYS);
-  const calibration = reading ? calibrate(runs, vo2max, date) : null;
+  const calibration = reading ? calibrate(runs, vo2max, date, target.lthr) : null;
   if (reading) {
     const used = reading.value + (calibration?.offset ?? 0);
     estimates.push({
@@ -467,7 +499,13 @@ export function predictAt(
   }
 
   // A recent race Garmin's VO2max can't be checked against: trust the race.
-  const raced = !calibration && recent.some((r) => r.race && r.distanceMeters >= minEffort);
+  const raced =
+    !calibration &&
+    recent.some(
+      (r) =>
+        (r.race && r.distanceMeters >= minEffort) ||
+        r.efforts.some((e) => e.distanceMeters >= minEffort && isAllOut(e, target.lthr))
+    );
   return { date, ...combine(estimates, raced), estimates };
 }
 
@@ -483,24 +521,41 @@ function latestReading(
 }
 
 /**
+ * What a run is worth as a race result: the whole run when it was a race,
+ * else its best all-out stretch (isAllOut), else nothing. As a VDOT.
+ */
+function raceVdot(run: RunSummary, lthr: number | null | undefined): number | null {
+  if (run.race && run.distanceMeters >= 3000 && run.movingSeconds > 0) {
+    return vdot(run.distanceMeters, run.movingSeconds);
+  }
+  const allOut = run.efforts
+    .filter((e) => e.distanceMeters >= 3000 && isAllOut(e, lthr))
+    .map((e) => vdot(e.distanceMeters, e.seconds));
+  return allOut.length ? Math.max(...allOut) : null;
+}
+
+/**
  * Daniels' tables want a VDOT - the VO2max a race result is worth, economy
  * and endurance included - and Garmin's VO2max usually sits above it. The
- * gap on the athlete's latest race (3 km or more, with a Garmin reading in
- * the two weeks before it) is theirs: it's carried over to later readings.
+ * gap on the athlete's latest race or all-out effort (3 km or more, with a
+ * Garmin reading in the two weeks before it) is theirs: it's carried over to
+ * later readings.
  */
 export function calibrate(
   runs: RunSummary[],
   readings: Vo2maxReading[],
-  date: string
+  date: string,
+  lthr?: number | null
 ): { raceDate: string; raceVdot: number; offset: number } | null {
-  const races = runs
-    .filter((r) => r.race && r.date <= date && r.distanceMeters >= 3000 && r.movingSeconds > 0)
+  const candidates = runs
+    .filter((r) => r.date <= date)
     .sort((a, b) => b.date.localeCompare(a.date));
-  for (const race of races) {
-    const reading = latestReading(readings, race.date, VO2MAX_MAX_AGE_DAYS);
+  for (const run of candidates) {
+    const value = raceVdot(run, lthr);
+    if (value === null) continue;
+    const reading = latestReading(readings, run.date, VO2MAX_MAX_AGE_DAYS);
     if (!reading) continue;
-    const raceVdot = vdot(race.distanceMeters, race.movingSeconds);
-    return { raceDate: race.date, raceVdot, offset: raceVdot - reading.value };
+    return { raceDate: run.date, raceVdot: value, offset: value - reading.value };
   }
   return null;
 }

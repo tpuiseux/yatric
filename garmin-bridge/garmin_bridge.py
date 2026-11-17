@@ -70,6 +70,9 @@ SOCKET_TIMEOUT_SECONDS = 30
 # for its whole duration).
 MAX_ACTIVITY_SYNC_DAYS = 120
 MAX_WELLNESS_SYNC_DAYS = 31
+# VO2max history comes in one call per chunk, so a whole year is cheap.
+MAX_VO2MAX_SYNC_DAYS = 366
+VO2MAX_CHUNK_DAYS = 90
 
 
 def parse_date_range(body: dict, max_days: int) -> tuple[date, date] | None:
@@ -117,6 +120,31 @@ def wellness_for_range(garmin, start: date, end: date) -> list[dict]:
     while day <= end:
         rows.append(fetch_day(garmin, day.isoformat(), body_battery))
         day += timedelta(days=1)
+    return rows
+
+
+def vo2max_for_range(garmin, start: date, end: date) -> list[dict]:
+    """Garmin's running VO2max per day in [start, end]: [{"date", "vo2max"}].
+
+    The max-metrics endpoint takes a date range (garminconnect's
+    get_max_metrics only ever asks for one day), so a year is a few calls
+    instead of the per-day training-status call the wellness sync makes."""
+    rows = []
+    chunk_start = start
+    while chunk_start <= end:
+        chunk_end = min(end, chunk_start + timedelta(days=VO2MAX_CHUNK_DAYS - 1))
+        data = call_with_retry(
+            garmin.connectapi,
+            f"{garmin.garmin_connect_metrics_url}/{chunk_start.isoformat()}/{chunk_end.isoformat()}",
+            label="vo2max",
+        )
+        for entry in data or []:
+            generic = (entry or {}).get("generic") or {}
+            value = generic.get("vo2MaxPreciseValue") or generic.get("vo2MaxValue")
+            day = generic.get("calendarDate")
+            if value and isinstance(day, str):
+                rows.append({"date": day[:10], "vo2max": value})
+        chunk_start = chunk_end + timedelta(days=1)
     return rows
 
 
@@ -373,6 +401,9 @@ def make_handler(api, dry_run, token, allowed_origins, multiuser_dir: Path):
                 return
             if self.path == "/garmin/wellness":
                 self._handle_garmin_sync("wellness")
+                return
+            if self.path == "/garmin/vo2max":
+                self._handle_garmin_sync("vo2max")
                 return
             if self.path == "/garmin/activity-details":
                 self._handle_garmin_activity_details()
@@ -641,7 +672,7 @@ def make_handler(api, dry_run, token, allowed_origins, multiuser_dir: Path):
                 return None
 
         def _handle_garmin_sync(self, kind: str) -> None:
-            """POST /garmin/activities | /garmin/wellness {userId, start, end}.
+            """POST /garmin/activities | /garmin/wellness | /garmin/vo2max {userId, start, end}.
 
             Read-only towards Garmin, and stateless here: the rows go back to
             the web app, which owns the database they're stored in.
@@ -656,7 +687,11 @@ def make_handler(api, dry_run, token, allowed_origins, multiuser_dir: Path):
                 return
 
             user_id = str(body.get("userId", ""))
-            max_days = MAX_ACTIVITY_SYNC_DAYS if kind == "activities" else MAX_WELLNESS_SYNC_DAYS
+            max_days = {
+                "activities": MAX_ACTIVITY_SYNC_DAYS,
+                "wellness": MAX_WELLNESS_SYNC_DAYS,
+                "vo2max": MAX_VO2MAX_SYNC_DAYS,
+            }[kind]
             date_range = parse_date_range(body, max_days)
             if not is_valid_user_id(user_id) or date_range is None:
                 self._json(
@@ -667,7 +702,8 @@ def make_handler(api, dry_run, token, allowed_origins, multiuser_dir: Path):
             start, end = date_range
 
             if dry_run:
-                self._json(200, {"activities": [], "duplicatesRemoved": 0} if kind == "activities" else {"days": []})
+                empty = {"activities": {"activities": [], "duplicatesRemoved": 0}, "vo2max": {"days": []}}
+                self._json(200, empty.get(kind, {"days": []}))
                 return
 
             garmin = self._user_session(user_id)
@@ -678,6 +714,8 @@ def make_handler(api, dry_run, token, allowed_origins, multiuser_dir: Path):
                 if kind == "activities":
                     rows, removed = activities_for_range(garmin, start, end)
                     self._json(200, {"activities": rows, "duplicatesRemoved": removed})
+                elif kind == "vo2max":
+                    self._json(200, {"days": vo2max_for_range(garmin, start, end)})
                 else:
                     self._json(200, {"days": wellness_for_range(garmin, start, end)})
             except GarminConnectTooManyRequestsError as e:

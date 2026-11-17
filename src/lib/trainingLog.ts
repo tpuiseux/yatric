@@ -17,6 +17,10 @@ export interface RecordedActivity {
   movingSeconds: number | null;
   distanceMeters: number | null;
   averageHeartrate: number | null;
+  /** A race: tagged on Garmin, or marked by the athlete (race_marks). */
+  race?: boolean;
+  /** The official time the athlete gave for the race, in seconds. */
+  officialSeconds?: number | null;
 }
 
 export const FEELINGS = ["great", "good", "ok", "hard", "awful"] as const;

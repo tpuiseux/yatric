@@ -223,6 +223,17 @@ CREATE TABLE IF NOT EXISTS workout_auto_completions (
 -- complete = 0 while Garmin was still processing the upload (or the fetch
 -- failed): it's fetched again, up to a few attempts, so one activity Garmin
 -- can't serve doesn't hold up the others for good.
+-- The athlete's say on whether a run was a race, and its official time.
+-- Kept apart from \`activities\` so a Garmin re-sync never overwrites it;
+-- is_race 0 un-marks a run Garmin tagged as a race.
+CREATE TABLE IF NOT EXISTS race_marks (
+  activity_id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  is_race INTEGER NOT NULL,
+  official_seconds INTEGER,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS activity_details (
   activity_id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
